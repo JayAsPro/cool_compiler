@@ -1,6 +1,5 @@
 use std::env;
 use std::fs;
-use std::str;
 
 const SEPARATORS: [char; 12] = [' ', ':', ';', '(', ')', '{', '}', '\"', '\\', '\t', '\r', '\n'];
 const WHITESPACES: [char; 2] = [' ', '\t'];
