@@ -1,12 +1,12 @@
 use std::env;
 use std::fs;
 
-const SEPARATORS: [char; 12] = [' ', ':', ';', '(', ')', '{', '}', '\"', '\\', '\t', '\r', '\n'];
+const SEPARATORS: [char; 14] = [' ', ',', '.', ':', ';', '(', ')', '{', '}', '\"', '\\', '\t', '\r', '\n'];
 const WHITESPACES: [char; 2] = [' ', '\t'];
 
 const UNARY_OPERATOR: [&str; 4] = ["@", "~", "not", "isvoid"];
-const BINARY_OPERATOR: [&str; 7] = ["+", "-", "*", "/", "=", "<", "<="];
-const DELIMITER: [&str; 6] = [":", ";", "(", ")", "{", "}"];
+const BINARY_OPERATOR: [&str; 8] = [".", "+", "-", "*", "/", "=", "<", "<="];
+const DELIMITER: [&str; 7] = [",", ":", ";", "(", ")", "{", "}"];
 const CONTROL: [&str; 10] = ["if", "then", "else", "fi", "while", "loop", "pool", "case", "of", "esac"];
 const DEFINITION: [&str; 5] = ["class", "inherits", "let", "in", "new"];
 const BOOLEAN: [&str; 2] = ["true", "false"];
