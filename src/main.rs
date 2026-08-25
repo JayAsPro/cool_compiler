@@ -4,8 +4,8 @@ use std::fs;
 const SEPARATORS: [char; 14] = [' ', ',', '.', ':', ';', '(', ')', '{', '}', '\"', '\\', '\t', '\r', '\n'];
 const WHITESPACES: [char; 2] = [' ', '\t'];
 
-const UNARY_OPERATOR: [&str; 4] = ["@", "~", "not", "isvoid"];
-const BINARY_OPERATOR: [&str; 8] = [".", "+", "-", "*", "/", "=", "<", "<="];
+const UNARY_OPERATOR: [&str; 3] = ["~", "not", "isvoid"];
+const BINARY_OPERATOR: [&str; 9] = [".", "@", "+", "-", "*", "/", "=", "<", "<="];
 const DELIMITER: [&str; 7] = [",", ":", ";", "(", ")", "{", "}"];
 const CONTROL: [&str; 10] = ["if", "then", "else", "fi", "while", "loop", "pool", "case", "of", "esac"];
 const DEFINITION: [&str; 5] = ["class", "inherits", "let", "in", "new"];
