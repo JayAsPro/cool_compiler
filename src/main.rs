@@ -1,15 +1,19 @@
 use std::env;
 use std::fs;
 
-const SEPARATORS: [char; 14] = [' ', ',', '.', ':', ';', '(', ')', '{', '}', '\"', '\\', '\t', '\r', '\n'];
+const SEPARATORS: [char; 22] = [
+    ' ', ',', '.', ':', ';', '~', '@', '+', '-', '*', '/', '=', '<',
+    '(', ')', '{', '}', '\\', '\"', '\t', '\r', '\n'
+];
+
 const WHITESPACES: [char; 2] = [' ', '\t'];
 
 const UNARY_OPERATOR: [&str; 3] = ["~", "not", "isvoid"];
-const BINARY_OPERATOR: [&str; 9] = [".", "@", "+", "-", "*", "/", "=", "<", "<="];
+const BINARY_OPERATOR: [&str; 10] = [".", "@", "+", "-", "*", "/", "=", "<", "<=", "<-"];
 const DELIMITER: [&str; 7] = [",", ":", ";", "(", ")", "{", "}"];
+const BOOLEAN: [&str; 2] = ["true", "false"];
 const CONTROL: [&str; 10] = ["if", "then", "else", "fi", "while", "loop", "pool", "case", "of", "esac"];
 const DEFINITION: [&str; 5] = ["class", "inherits", "let", "in", "new"];
-const BOOLEAN: [&str; 2] = ["true", "false"];
 
 #[derive(Debug)]
 enum TokenType {
@@ -68,19 +72,24 @@ fn extract_token_text(mut code: &str, mut line_number: u32) -> (&str, &str, u32)
                     while let Some(index) = (&code[search_index..]).find(['\"', '\r', '\n']) {
                         end_index = search_index + index;
 
-                        // Lógica para strings divididas por várias linhas de código.
+                        // Lógica da barra invertida.
                         if &code[end_index-1..end_index] == "\\" {
-                            // Para o formato Unix-like.
+                            search_index = end_index + 1;
+
+                            // Para o formato Unix de pular linha.
                             if &code[end_index..end_index+1] == "\n" {
-                                search_index = end_index + 1;
                                 line_number = line_number + 1;
                             }
-                            // Para o formato Windows.
+                            // Para o formato Windows de pular linha.
                             else if let Some("\r\n") = code.get(end_index..end_index+2) {
-                                search_index = end_index + 2;
+                                search_index += 1;
                                 line_number = line_number + 1;
                             }
                         } else {
+                            if &code[end_index..end_index+1] != "\"" {
+                                end_index -= 1;
+                            }
+
                             break;
                         }
                     }
@@ -88,6 +97,8 @@ fn extract_token_text(mut code: &str, mut line_number: u32) -> (&str, &str, u32)
                     token_text = &code[0..end_index+1];
                     code = &code[end_index+1..];
                 },
+
+                // Se for um operador feito de dois símbolos.
                 "<" => {
                     if let Some("-" | "=") = code.get(1..2) {
                         token_text = &code[0..2];
@@ -99,8 +110,9 @@ fn extract_token_text(mut code: &str, mut line_number: u32) -> (&str, &str, u32)
                 },
 
                 // Se for um pular linha.
-                "\r" => { return extract_token_text(&code[1..], line_number); } // Para o formato Windows. 
+                "\r" => { return extract_token_text(&code[1..], line_number); }
                 "\n" => { return extract_token_text(&code[1..], line_number + 1); }
+
                 &_ => { token_text = &code[0..1]; code = &code[1..]; }
             }
         } else {
