@@ -79,7 +79,51 @@ fn extract_string(mut code: &str, mut line_number: u32) -> (&str, &str, u32) {
     return (token_text, code, line_number);
 }
 
-fn extract_token_text(mut code: &str, line_number: u32) -> (&str, &str, u32) {
+fn jump_comment(code: &str, mut line_number: u32) -> (usize, u32) {
+    // Já contamos um "(*" antes de chamar a função.
+    let mut delimiter_count = 1;
+    let mut index = 2;
+
+    while delimiter_count != 0 {
+        if let Some(i) = (&code[index..]).find(['(', '*', '\r', '\n']) {
+            index += i;
+            
+            match &code[index..index+1] {
+                "(" => {
+                    if let Some("*") = code.get(index+1..index+2) {
+                        delimiter_count += 1;
+                        index += 2;
+                    } else {
+                        index += 1;
+                    }
+                }
+
+                "*" => {
+                    if let Some(")") = code.get(index+1..index+2) {
+                        delimiter_count -= 1;
+                        index += 2;
+                    } else {
+                        index += 1;
+                    }
+                }
+
+                "\n" => {
+                    line_number += 1;
+                    index += 1;
+                }
+                
+                &_ => { index += 1; }
+            }
+        } else {
+            index = code.len();
+            break;
+        }
+    }
+    
+    return (index, line_number);
+}
+
+fn extract_token_text(mut code: &str, mut line_number: u32) -> (&str, &str, u32) {
     let token_text;
     code = code.trim_matches(WHITESPACES);
     
@@ -98,6 +142,17 @@ fn extract_token_text(mut code: &str, line_number: u32) -> (&str, &str, u32) {
                             token_text = "";
                             code = "";
                         }
+                    } else {
+                        (token_text, code) = code.split_at(1);
+                    }
+                }
+
+                // Comentário ou abre-parênteses.
+                "(" => {
+                    if let Some("*") = code.get(1..2) {
+                        let index;
+                        (index, line_number) = jump_comment(code, line_number);
+                        return extract_token_text(&code[index..], line_number);
                     } else {
                         (token_text, code) = code.split_at(1);
                     }
