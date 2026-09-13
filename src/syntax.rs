@@ -37,6 +37,52 @@ fn next_token_type(state: &mut State, tk_type: TokenType) -> bool {
     return token_type(&state.last_token, tk_type);
 }
 
+fn optional_list(
+    state: &mut State, var: fn(&mut State) -> bool, sep: &str, term: &str) -> bool {
+    lexical::next_token(state);
+        
+    if state.last_token.value != term {
+        if !var(state) { return false; }
+        lexical::next_token(state);
+
+        while state.last_token.value == sep {
+            lexical::next_token(state);
+            if !var(state) { return false; }
+            lexical::next_token(state);
+        }
+    }
+    
+    return token_value(&state.last_token, term);
+}
+
+fn expr(state: &mut State) -> bool {
+    lexical::next_token(state);
+
+    if state.last_token.tk_type == TokenType::Integer
+    || state.last_token.tk_type == TokenType::String
+    || state.last_token.tk_type == TokenType::Boolean {
+        lexical::next_token(state);
+    }
+    else if state.last_token.value == "new" {
+        if !next_token_type(state, TokenType::TypeID) { return false; }
+        lexical::next_token(state);
+    }
+    else if state.last_token.tk_type == TokenType::ObjectID {
+        lexical::next_token(state);
+        if state.last_token.value == "<-" { return expr(state); }
+    }
+    else {
+        eprintln!(
+            "ERRO SINTÁTICO (linha {}): esperava início de expressão; encontrou \"{}\".",
+            state.last_token.line, state.last_token.value
+        );
+
+        return false;
+    }
+    
+    return true;
+}
+
 fn formal(state: &mut State) -> bool {
     if !token_type(&state.last_token, TokenType::ObjectID) { return false; }
     if !next_token_value(state, ":") { return false; }
@@ -50,27 +96,15 @@ fn feature(state: &mut State) -> bool {
 
     // Método.
     if state.last_token.value == "(" {
-        lexical::next_token(state);
-        
-        if state.last_token.value != ")" {
-            if !formal(state) { return false; }
-            lexical::next_token(state);
-
-            while state.last_token.value == "," {
-                lexical::next_token(state);
-                if !formal(state) { return false; }
-                lexical::next_token(state);
-            }
-        }
-        
+        if !optional_list(state, formal, ",", ")") { return false };
         if !token_value(&state.last_token, ")") { return false; }
 
         if !next_token_value(state, ":") { return false; }
         if !next_token_type(state, TokenType::TypeID) { return false; }
 
         if !next_token_value(state, "{") { return false; }
-        // expr
-        if !next_token_value(state, "}") { return false; }
+        if !expr(state) { return false; }
+        if !token_value(&state.last_token, "}") { return false; }
         
         lexical::next_token(state);
     }
@@ -78,10 +112,7 @@ fn feature(state: &mut State) -> bool {
     else if state.last_token.value == ":" {
         if !next_token_type(state, TokenType::TypeID) { return false; }
         lexical::next_token(state);
-
-        if state.last_token.value == "<-" {
-            lexical::next_token(state); // Testar expressão.
-        }
+        if state.last_token.value == "<-" { return expr(state); }
     }
     else {
         eprintln!(
@@ -114,9 +145,7 @@ fn class(state: &mut State) -> bool {
         lexical::next_token(state);
     }
     
-    if !token_value(&state.last_token, "}") { return false; }
-    
-    return true;
+    return token_value(&state.last_token, "}");
 }
 
 pub fn program(code: &str) -> bool {

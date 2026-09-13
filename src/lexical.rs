@@ -27,7 +27,7 @@ fn extract_string(mut code: &str, mut line: usize) -> (&str, &str, usize) {
         end_index = search_index + i;
 
         // Se houver barra invertida antes, a string continua.
-        if &code[end_index-1..end_index] == "\\" {
+        if let Some("\\") = code.get(end_index-1..end_index) {
             search_index = end_index + 1;
 
             // Para o formato Unix de pular linha.
@@ -166,10 +166,10 @@ pub fn next_token(state: &mut State) {
     if tk_text == "" {
         tk_type = TokenType::Eof;
     }
-    else if &tk_text[0..1] == "\"" {
-        let length = tk_text.len();
+    else if let Some("\"") = tk_text.get(0..1) {
+        let len = tk_text.len();
         
-        if length >=2 && &tk_text[length-1..length] == "\"" {
+        if let Some("\"") = tk_text.get(len-1..len) && len >= 2 {
             tk_type = TokenType::String;
         } else {
             tk_type = TokenType::Error;
