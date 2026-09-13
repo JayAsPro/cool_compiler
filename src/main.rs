@@ -17,7 +17,7 @@ fn main() {
         eprintln!("ERRO: falha na abertura do arquivo!");
         return;
     };
-
-    // syntax_analysis(&code);
+    
     syntax::program(&code);
+    // syntax::token_loop(&code);
 }
