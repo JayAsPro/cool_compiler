@@ -19,5 +19,5 @@ fn main() {
     };
 
     // syntax_analysis(&code);
-    syntax::token_loop(&code);
+    syntax::program(&code);
 }

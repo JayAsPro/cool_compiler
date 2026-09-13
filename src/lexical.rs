@@ -222,4 +222,6 @@ pub fn next_token(state: &mut State) {
         value: tk_text.replace(['\r', '\n'], ""),
         line: state.line
     };
+
+    println!("{:#?}", state.last_token);
 }
