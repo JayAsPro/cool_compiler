@@ -37,22 +37,35 @@ fn next_token_type(state: &mut State, tk_type: TokenType) -> bool {
     return token_type(&state.last_token, tk_type);
 }
 
-fn optional_list(
-    state: &mut State, var: fn(&mut State) -> bool, sep: &str, term: &str) -> bool {
+fn list_semicolon(
+    state: &mut State, variable: fn(&mut State) -> bool, terminator: &str
+) -> bool {
+    loop {
+        if !variable(state) { return false; }
+        if !token_value(&state.last_token, ";") { return false; }
+        
+        lexical::next_token(state);
+        if state.last_token.value == terminator { return true; }
+    }
+}
+
+fn list_comma(
+    state: &mut State, variable: fn(&mut State) -> bool, terminator: &str
+) -> bool {
     lexical::next_token(state);
         
-    if state.last_token.value != term {
-        if !var(state) { return false; }
+    if state.last_token.value != terminator {
+        if !variable(state) { return false; }
         lexical::next_token(state);
 
-        while state.last_token.value == sep {
+        while state.last_token.value == "," {
             lexical::next_token(state);
-            if !var(state) { return false; }
+            if !variable(state) { return false; }
             lexical::next_token(state);
         }
     }
     
-    return token_value(&state.last_token, term);
+    return token_value(&state.last_token, terminator);
 }
 
 fn expr(state: &mut State) -> bool {
@@ -96,7 +109,7 @@ fn feature(state: &mut State) -> bool {
 
     // Método.
     if state.last_token.value == "(" {
-        if !optional_list(state, formal, ",", ")") { return false };
+        if !list_comma(state, formal, ")") { return false };
         if !token_value(&state.last_token, ")") { return false; }
 
         if !next_token_value(state, ":") { return false; }
@@ -139,26 +152,24 @@ fn class(state: &mut State) -> bool {
     if !token_value(&state.last_token, "{") { return false; }
     lexical::next_token(state);
 
-    while state.last_token.value != "}" {
-        if !feature(state) { return false; }
-        if !token_value(&state.last_token, ";") { return false; }
-        lexical::next_token(state);
+    if state.last_token.value != "}" {
+        return list_semicolon(state, feature, "}");
+    } else {
+        return token_value(&state.last_token, "}");
     }
-    
-    return token_value(&state.last_token, "}");
 }
 
 pub fn program(code: &str) -> bool {
     let mut state = State::new(code);
     lexical::next_token(&mut state);
 
-    while state.last_token.tk_type != TokenType::Eof {
+    loop {
         if !class(&mut state) { return false; }
         if !next_token_value(&mut state, ";") { return false; }
+        
         lexical::next_token(&mut state);
+        if state.last_token.tk_type == TokenType::Eof { return true; }
     }
-
-    return true;
 }
 
 /* 
