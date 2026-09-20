@@ -20,43 +20,36 @@ const BOOLEAN: [&str; 2] = ["true", "false"];
 
 fn extract_string(mut code: &str, mut line: usize) -> (&str, &str, usize) {
     let token_text;
-    let mut search_index = 1;
-    let mut end_index = code.len();
+    let mut index = 1;
 
-    while let Some(i) = (&code[search_index..]).find(['\"', '\r', '\n']) {
-        end_index = search_index + i;
+    while let Some(i) = (&code[index..]).find(['\"', '\r', '\n']) {
+        index += i;
 
         // Se houver barra invertida antes, a string continua.
-        if let Some("\\") = code.get(end_index-1..end_index) {
-            search_index = end_index + 1;
-
+        if let Some("\\") = code.get(index-1..index) {
+            index += 1;
             // Para o formato Unix de pular linha.
-            if &code[end_index..end_index+1] == "\n" {
+            if &code[index-1..index] == "\n" {
                 line = line + 1;
             }
             // Para o formato Windows de pular linha.
-            else if let Some("\r\n") = code.get(end_index..end_index+2) {
-                search_index += 1;
+            else if let Some("\r\n") = code.get(index-1..index+1) {
+                index += 1;
                 line = line + 1;
             }
         }
         // Se não, é o fim da string.
         else {
-            if &code[end_index..end_index+1] == "\"" {
-                end_index += 1;
-            }
-
+            if &code[index..index+1] == "\"" { index += 1; }
             break;
         }
     }
 
-    (token_text, code) = code.split_at(end_index);
-    
+    (token_text, code) = code.split_at(index);
     return (token_text, code, line);
 }
 
 fn skip_comment(code: &str, mut line: usize) -> (usize, usize) {
-    // Assume-se que já se consumiu um "(*" antes da função ser chamada.
     let mut delimiter_count = 1;
     let mut index = 2;
 
@@ -70,16 +63,16 @@ fn skip_comment(code: &str, mut line: usize) -> (usize, usize) {
                         delimiter_count += 1;
                         index += 1;
                     }
-                },
+                }
 
                 "*" => {
                     if let Some(")") = code.get(index..index+1) {
                         delimiter_count -= 1;
                         index += 1;
                     }
-                },
+                }
 
-                "\n" => { line += 1; },
+                "\n" => { line += 1; }
                 &_ => ()
             }
         } else {
@@ -99,7 +92,7 @@ fn extract_token_text(mut code: &str, mut line: usize) -> (&str, &str, usize) {
         if index == 0 {
             match &code[0..1] {
                 // String.
-                "\"" => { return extract_string(code, line); },
+                "\"" => { return extract_string(code, line); }
 
                 // Comentário de uma linha ou operador de subtração.
                 "-" => {
@@ -113,7 +106,7 @@ fn extract_token_text(mut code: &str, mut line: usize) -> (&str, &str, usize) {
                     } else {
                         (token_text, code) = code.split_at(1);
                     }
-                },
+                }
 
                 // Comentário ou abre-parênteses.
                 "(" => {
@@ -124,7 +117,7 @@ fn extract_token_text(mut code: &str, mut line: usize) -> (&str, &str, usize) {
                     } else {
                         (token_text, code) = code.split_at(1);
                     }
-                },
+                }
 
                 // Operador de atribuição, de menor ou igual ou de menor.
                 "<" => {
@@ -133,11 +126,20 @@ fn extract_token_text(mut code: &str, mut line: usize) -> (&str, &str, usize) {
                     } else {
                         (token_text, code) = code.split_at(1);
                     }
-                },
+                }
+
+                // Operador de igual ou seta do "case of".
+                "=" => {
+                    if let Some(">") = code.get(1..2) {
+                        (token_text, code) = code.split_at(2);
+                    } else {
+                        (token_text, code) = code.split_at(1);
+                    }
+                }
 
                 // Quebra de linha (Windows ou Unix).
-                "\r" => { return extract_token_text(&code[1..], line); },
-                "\n" => { return extract_token_text(&code[1..], line + 1); },
+                "\r" => { return extract_token_text(&code[1..], line); }
+                "\n" => { return extract_token_text(&code[1..], line + 1); }
 
                 // Tokens de um caractere.
                 &_ => { (token_text, code) = code.split_at(1); }
