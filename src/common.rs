@@ -28,25 +28,21 @@ impl Token {
         return Token {
             tk_type: TokenType::Start,
             value: String::new(),
-            line: 0
+            line: 1
         };
     }
 }
 
 pub struct State<'a> {
     pub last_token: Token,
-    pub token_text: &'a str,
-    pub code: &'a str,
-    pub line: usize
+    pub next_code: &'a str,
 }
 
 impl State<'_> {
     pub fn new(code: &str) -> State<'_> {
         return State {
             last_token: Token::new(),
-            token_text: "",
-            code: code,
-            line: 1
+            next_code: code,
         };
     }
 }

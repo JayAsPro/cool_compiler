@@ -18,35 +18,55 @@ const CONTROL: [&str; 11] = [
 const DEFINITION: [&str; 5] = ["class", "inherits", "let", "in", "new"];
 const BOOLEAN: [&str; 2] = ["true", "false"];
 
-fn extract_string(mut code: &str, mut line: usize) -> (&str, &str, usize) {
-    let token_text;
-    let mut index = 1;
+fn extract_string(mut code: &str, mut line: usize) -> (String, &str, usize) {
+    let mut token_text = String::from("\"");
 
-    while let Some(i) = (&code[index..]).find(['\"', '\r', '\n']) {
-        index += i;
+    while let Some(index) = code.find(['\"', '\\', '\r', '\n']) {
+        token_text += &code[..index];
 
-        // Se houver barra invertida antes, a string continua.
-        if let Some("\\") = code.get(index-1..index) {
-            index += 1;
-            // Para o formato Unix de pular linha.
-            if &code[index-1..index] == "\n" {
-                line = line + 1;
+        match &code[index..index+1] {
+            "\\" => {
+                code = &code[index+1..];
+
+                match code.get(index..index+1) {
+                    Some(text) => {
+                        code = &code[index+1..];
+                        
+                        token_text += match text {
+                            "r" => "\r",
+                            "n" => "\n",
+                            "t" => "\t",
+                            _ => text
+                        }
+                    }
+                    
+                    _ => ()
+                }
+
+                if let Some("\r") = code.get(index..index+1) {
+                    code = &code[index+1..];
+                }
+
+                if let Some("\n") = code.get(index..index+1) {
+                    code = &code[index+1..].trim_matches(WHITESPACES);
+                    line = line + 1;
+                }
             }
-            // Para o formato Windows de pular linha.
-            else if let Some("\r\n") = code.get(index-1..index+1) {
-                index += 1;
-                line = line + 1;
+
+            "\"" => {
+                token_text += "\"";
+                code = &code[index+1..];
+                break;
             }
-        }
-        // Se não, é o fim da string.
-        else {
-            if &code[index..index+1] == "\"" { index += 1; }
-            break;
+
+            &_ => {
+                code = &code[index..];
+                break;
+            }
         }
     }
 
-    (token_text, code) = code.split_at(index);
-    return (token_text, code, line);
+    return (String::from(token_text), code, line);
 }
 
 fn skip_comment(code: &str, mut line: usize) -> (usize, usize) {
@@ -84,7 +104,7 @@ fn skip_comment(code: &str, mut line: usize) -> (usize, usize) {
     return (index, line);
 }
 
-fn extract_token_text(mut code: &str, mut line: usize) -> (&str, &str, usize) {
+fn extract_token_text(mut code: &str, mut line: usize) -> (String, &str, usize) {
     let token_text;
     code = code.trim_matches(WHITESPACES);
     
@@ -92,7 +112,7 @@ fn extract_token_text(mut code: &str, mut line: usize) -> (&str, &str, usize) {
         if index == 0 {
             match &code[0..1] {
                 // String.
-                "\"" => { return extract_string(code, line); }
+                "\"" => { return extract_string(&code[1..], line); }
 
                 // Comentário de uma linha ou operador de subtração.
                 "-" => {
@@ -152,64 +172,66 @@ fn extract_token_text(mut code: &str, mut line: usize) -> (&str, &str, usize) {
         code = "";
     };
 
-    return (token_text, code, line);
+    return (String::from(token_text), code, line);
 }
 
 pub fn next_token(state: &mut State) {
-    let tk_type;
-    let tk_text;
-    let tk_text_lowercase;
-
-    (state.token_text, state.code, state.line) = extract_token_text(state.code, state.line);
-
-    tk_text = state.token_text;
-    tk_text_lowercase = tk_text.to_ascii_lowercase();
+    (state.last_token.value,
+     state.next_code,
+     state.last_token.line) = extract_token_text(state.next_code, state.last_token.line);
     
-    if tk_text == "" {
+    let value = &state.last_token.value;
+    let value_lowercase = value.to_ascii_lowercase();
+    let tk_type;
+    
+    if value == "" {
         tk_type = TokenType::Eof;
     }
-    else if let Some("\"") = tk_text.get(0..1) {
-        let len = tk_text.len();
+    else if let Some("\"") = value.get(0..1) {
+        let len = value.len();
         
-        if let Some("\"") = tk_text.get(len-1..len) && len >= 2 {
+        if let Some("\"") = value.get(len-1..len) && len >= 2 {
             tk_type = TokenType::String;
         } else {
             tk_type = TokenType::Error;
         }
     }
-    else if !tk_text.is_ascii() {
+    else if !value.is_ascii() {
         tk_type = TokenType::Error;
     }
-    else if tk_text.chars().all(char::is_numeric) {
+    else if value.chars().all(char::is_numeric) {
         tk_type = TokenType::Integer;
     }
-    else if DELIMITER.into_iter().any(|s| s == tk_text) {
+    else if DELIMITER.into_iter().any(|s| s == value) {
         tk_type = TokenType::Delimiter;
     }
-    else if BINARY_OPERATOR.into_iter().any(|s| s == tk_text) {
+    else if BINARY_OPERATOR.into_iter().any(|s| s == value) {
         tk_type = TokenType::BinaryOperator;
     }
-    else if UNARY_OPERATOR.into_iter().any(|s| s == tk_text_lowercase) {
+    else if UNARY_OPERATOR.into_iter().any(|s| s == value_lowercase) {
+        state.last_token.value = value_lowercase;
         tk_type = TokenType::UnaryOperator;
     }
-    else if CONTROL.into_iter().any(|s| s == tk_text_lowercase) {
+    else if CONTROL.into_iter().any(|s| s == value_lowercase) {
+        state.last_token.value = value_lowercase;
         tk_type = TokenType::Control;
     }
-    else if DEFINITION.into_iter().any(|s| s == tk_text_lowercase) {
+    else if DEFINITION.into_iter().any(|s| s == value_lowercase) {
+        state.last_token.value = value_lowercase;
         tk_type = TokenType::Definition;
     }
-    else if BOOLEAN.into_iter().any(|s| s == tk_text_lowercase) {
-        if tk_text.starts_with(char::is_lowercase) {
+    else if BOOLEAN.into_iter().any(|s| s == value_lowercase) {
+        if value.starts_with(char::is_lowercase) {
             tk_type = TokenType::Boolean;
         } else {
             tk_type = TokenType::Error;
         }
     }
     else {
-        let test = tk_text.replace('_', "");
+        let test = value.replace('_', "");
 
         if test.chars().all(char::is_alphanumeric) {
-            if tk_text.starts_with(char::is_uppercase) {
+            if value.starts_with(char::is_uppercase) {
                 tk_type = TokenType::TypeID;
             } else {
                 tk_type = TokenType::ObjectID;
@@ -218,12 +240,8 @@ pub fn next_token(state: &mut State) {
             tk_type = TokenType::Error;
         }
     }
-    
-    state.last_token = Token {
-        tk_type: tk_type,
-        value: tk_text.replace(['\r', '\n'], ""),
-        line: state.line
-    };
+
+    state.last_token.tk_type = tk_type;
 
     println!("{:#?}", state.last_token);
 }
