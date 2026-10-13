@@ -18,6 +18,12 @@ const CONTROL: [&str; 11] = [
 const DEFINITION: [&str; 5] = ["class", "inherits", "let", "in", "new"];
 const BOOLEAN: [&str; 2] = ["true", "false"];
 
+fn erro_lexico(token: &mut Token, message: &str) {
+    token.tk_type = TokenType::Error;
+    eprintln!("{:#?}", token);
+    eprintln!("ERRO LÉXICO (linha {}): {}.", token.line, message);
+}
+
 fn extract_string(mut code: &str, mut line: usize) -> (String, &str, usize) {
     let mut token_text = String::from("\"");
 
@@ -28,28 +34,24 @@ fn extract_string(mut code: &str, mut line: usize) -> (String, &str, usize) {
             "\\" => {
                 code = &code[index+1..];
 
-                match code.get(index..index+1) {
-                    Some(text) => {
-                        code = &code[index+1..];
-                        
-                        token_text += match text {
-                            "r" => "\r",
-                            "n" => "\n",
-                            "t" => "\t",
-                            _ => text
-                        }
-                    }
+                if let Some(text) = code.get(0..1) {
+                    code = &code[1..];
                     
-                    _ => ()
-                }
+                    match text {
+                        "\r" => {
+                            if let Some("\n") = code.get(0..1) {
+                                line += 1;
+                                code = &code[1..];
+                            }
+                        }
 
-                if let Some("\r") = code.get(index..index+1) {
-                    code = &code[index+1..];
-                }
-
-                if let Some("\n") = code.get(index..index+1) {
-                    code = &code[index+1..].trim_matches(WHITESPACES);
-                    line = line + 1;
+                        "\n" => { line += 1; }
+                        "b" => { token_text += "\b"; }
+                        "n" => { token_text += "\n"; }
+                        "t" => { token_text += "\t"; }
+                        "f" => { token_text += "\x0C"; }
+                        _ => { token_text += text; }
+                    }
                 }
             }
 
@@ -180,51 +182,68 @@ pub fn next_token(state: &mut State) {
      state.next_code,
      state.last_token.line) = extract_token_text(state.next_code, state.last_token.line);
     
-    let value = &state.last_token.value;
+    let value = &mut state.last_token.value;
     let value_lowercase = value.to_ascii_lowercase();
-    let tk_type;
+    let tk_type = &mut state.last_token.tk_type;
     
     if value == "" {
-        tk_type = TokenType::Eof;
+        *tk_type = TokenType::Eof;
     }
     else if let Some("\"") = value.get(0..1) {
         let len = value.len();
         
         if let Some("\"") = value.get(len-1..len) && len >= 2 {
-            tk_type = TokenType::String;
+            if len <= 1026 {  
+                *tk_type = TokenType::String;
+            } else {
+                erro_lexico(
+                    &mut state.last_token,
+                    "string com tamanho maior que 1024 bytes"
+                );
+            }
         } else {
-            tk_type = TokenType::Error;
+            erro_lexico(
+                &mut state.last_token,
+                "esperava fecha-aspas ao final da string"
+            );
         }
     }
     else if !value.is_ascii() {
-        tk_type = TokenType::Error;
+        erro_lexico(
+            &mut state.last_token,
+            "caractere inválido encontrado"
+        );
     }
     else if value.chars().all(char::is_numeric) {
-        tk_type = TokenType::Integer;
+        *tk_type = TokenType::Integer;
     }
     else if DELIMITER.into_iter().any(|s| s == value) {
-        tk_type = TokenType::Delimiter;
+        *tk_type = TokenType::Delimiter;
     }
     else if BINARY_OPERATOR.into_iter().any(|s| s == value) {
-        tk_type = TokenType::BinaryOperator;
+        *tk_type = TokenType::BinaryOperator;
     }
     else if UNARY_OPERATOR.into_iter().any(|s| s == value_lowercase) {
-        state.last_token.value = value_lowercase;
-        tk_type = TokenType::UnaryOperator;
+        *value = value_lowercase;
+        *tk_type = TokenType::UnaryOperator;
     }
     else if CONTROL.into_iter().any(|s| s == value_lowercase) {
-        state.last_token.value = value_lowercase;
-        tk_type = TokenType::Control;
+        *value = value_lowercase;
+        *tk_type = TokenType::Control;
     }
     else if DEFINITION.into_iter().any(|s| s == value_lowercase) {
-        state.last_token.value = value_lowercase;
-        tk_type = TokenType::Definition;
+        *value = value_lowercase;
+        *tk_type = TokenType::Definition;
     }
     else if BOOLEAN.into_iter().any(|s| s == value_lowercase) {
         if value.starts_with(char::is_lowercase) {
-            tk_type = TokenType::Boolean;
+            *value = value_lowercase;
+            *tk_type = TokenType::Boolean;
         } else {
-            tk_type = TokenType::Error;
+            erro_lexico(
+                &mut state.last_token,
+                "esperava letra inicial minúscula em valor booleano"
+            );
         }
     }
     else {
@@ -232,16 +251,17 @@ pub fn next_token(state: &mut State) {
 
         if test.chars().all(char::is_alphanumeric) {
             if value.starts_with(char::is_uppercase) {
-                tk_type = TokenType::TypeID;
+                *tk_type = TokenType::TypeID;
             } else {
-                tk_type = TokenType::ObjectID;
+                *tk_type = TokenType::ObjectID;
             }
         } else {
-            tk_type = TokenType::Error;
+            erro_lexico(
+                &mut state.last_token,
+                "caractere inválido encontrado em identificador"
+            );
         }
     }
 
-    state.last_token.tk_type = tk_type;
-
-    println!("{:#?}", state.last_token);
+    // println!("{:#?}", state.last_token);
 }
