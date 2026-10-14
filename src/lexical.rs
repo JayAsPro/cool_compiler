@@ -46,7 +46,7 @@ fn extract_string(mut code: &str, mut line: usize) -> (String, &str, usize) {
                         }
 
                         "\n" => { line += 1; }
-                        "b" => { token_text += "\b"; }
+                        "b" => { token_text += "\x08"; }
                         "n" => { token_text += "\n"; }
                         "t" => { token_text += "\t"; }
                         "f" => { token_text += "\x0C"; }
