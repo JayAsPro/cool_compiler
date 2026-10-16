@@ -2,6 +2,12 @@ use crate::common::*;
 use crate::lexical;
 
 #[derive(Debug)]
+struct Attribute { object_id: String, type_id: String }
+
+#[derive(Debug)]
+struct Method { object_id: String, type_id: String, formals: Vec<Formal> }
+
+#[derive(Debug)]
 struct Formal {
     object_id: String,
     type_id: String
@@ -9,8 +15,8 @@ struct Formal {
 
 #[derive(Debug)]
 enum Feature {
-    Attribute { object_id: String, type_id: String },
-    Method { object_id: String, type_id: String, formals: Vec<Formal> }
+    Attribute(Attribute),
+    Method(Method)
 }
 
 #[derive(Debug)]
@@ -69,7 +75,24 @@ fn next_token_type(state: &mut State<Program>, tk_type: TokenType) -> bool {
     return token_type(&state.last_token, tk_type);
 }
 
-fn list_semicolon(
+fn list_semicolon<T>(
+    state: &mut State<Program>, variable: fn(&mut State<Program>) -> Result<T, T>, terminator: &str
+) -> Result<Vec<T>, Vec<T>> {
+    let mut list: Vec<T> = Vec::new();
+
+    loop {
+        match variable(state) {
+            Ok(node) => { list.push(node); }
+            Err(node) => { list.push(node); return Err(list) }
+        }
+        if !token_value(&state.last_token, ";") { return Err(list) }
+        
+        lexical::next_token(state);
+        if state.last_token.value == terminator { return Ok(list) }
+    }
+}
+
+fn list_semicolon_temp(
     state: &mut State<Program>, variable: fn(&mut State<Program>) -> bool, terminator: &str
 ) -> bool {
     loop {
@@ -81,7 +104,33 @@ fn list_semicolon(
     }
 }
 
-fn list_comma(
+fn list_comma<T>(
+    state: &mut State<Program>, variable: fn(&mut State<Program>) -> Result<T, T>, terminator: &str
+) -> Result<Vec<T>, Vec<T>> {
+    let mut list: Vec<T> = Vec::new();
+    
+    lexical::next_token(state);
+        
+    if state.last_token.value != terminator {
+        match variable(state) {
+            Ok(node) => { list.push(node); }
+            Err(node) => { list.push(node); return Err(list) }
+        }
+        
+        while state.last_token.value == "," {
+            lexical::next_token(state);
+            match variable(state) {
+                Ok(node) => { list.push(node); }
+                Err(node) => { list.push(node); return Err(list) }
+            }
+        }
+    }
+    
+    if !token_value(&state.last_token, terminator) { return Err(list); }
+    return Ok(list)
+}
+
+fn list_comma_temp(
     state: &mut State<Program>, variable: fn(&mut State<Program>) -> bool, terminator: &str
 ) -> bool {
     lexical::next_token(state);
@@ -140,7 +189,7 @@ fn expr(state: &mut State<Program>) -> bool {
                 if !expr(state) { return false; }
             }
             else if state.last_token.value == "(" {
-                if !list_comma(state, expr, ")") { return false; }
+                if !list_comma_temp(state, expr, ")") { return false; }
                 lexical::next_token(state);
             }
         }
@@ -176,7 +225,7 @@ fn expr(state: &mut State<Program>) -> bool {
 
                 "{" => {
                     lexical::next_token(state);
-                    if !list_semicolon(state, expr, "}") { return false; }
+                    if !list_semicolon_temp(state, expr, "}") { return false; }
                     lexical::next_token(state);
                 }
 
@@ -209,7 +258,7 @@ fn expr(state: &mut State<Program>) -> bool {
                 }
 
                 "let" => {
-                    if !list_comma(state, object_definition, "in") { return false; }
+                    if !list_comma_temp(state, object_definition, "in") { return false; }
                     lexical::next_token(state);
                     if !expr(state) { return false; }
                 }
@@ -220,7 +269,7 @@ fn expr(state: &mut State<Program>) -> bool {
 
                     if !token_value(&state.last_token, "of") { return false; }
                     lexical::next_token(state);
-                    if !list_semicolon(state, case_of, "esac") { return false; }
+                    if !list_semicolon_temp(state, case_of, "esac") { return false; }
 
                     lexical::next_token(state);
                 }
@@ -245,7 +294,7 @@ fn expr(state: &mut State<Program>) -> bool {
                 if !next_token_type(state, TokenType::ObjectID) { return false; }
 
                 if !next_token_value(state, "(") { return false; }
-                if !list_comma(state, expr, ")") { return false; }
+                if !list_comma_temp(state, expr, ")") { return false; }
 
                 lexical::next_token(state);
             }
@@ -254,7 +303,7 @@ fn expr(state: &mut State<Program>) -> bool {
                 if !next_token_type(state, TokenType::ObjectID) { return false; }
 
                 if !next_token_value(state, "(") { return false; }
-                if !list_comma(state, expr, ")") { return false; }
+                if !list_comma_temp(state, expr, ")") { return false; }
                 
                 lexical::next_token(state);
             }
@@ -269,42 +318,88 @@ fn expr(state: &mut State<Program>) -> bool {
     }
 }
 
-fn formal(state: &mut State<Program>) -> bool {
-    if !token_type(&state.last_token, TokenType::ObjectID) { return false; }
-    if !next_token_value(state, ":") { return false; }
-    if !next_token_type(state, TokenType::TypeID) { return false; }
+fn formal(state: &mut State<Program>) -> Result<Formal, Formal> {
+    let mut formal = Formal {
+        object_id: String::new(),
+        type_id: String::new()
+    };
+
+    if !token_type(&state.last_token, TokenType::ObjectID) { return Err(formal) }
+    formal.object_id = state.last_token.value.clone();
+
+    if !next_token_value(state, ":") { return Err(formal) }
+    if !next_token_type(state, TokenType::TypeID) { return Err(formal) }
+    formal.type_id = state.last_token.value.clone();
 
     lexical::next_token(state);
-    return true;
+    return Ok(formal);
 }
 
-fn feature(state: &mut State<Program>) -> bool {
-    if !token_type(&state.last_token, TokenType::ObjectID) { return false; }
+fn feature(state: &mut State<Program>) -> Result<Feature, Feature> {
+    let mut attribute = Attribute {
+        object_id: String::new(), type_id: String::new()
+    };
+
+    if !token_type(&state.last_token, TokenType::ObjectID) {
+        return Err(Feature::Attribute(attribute));
+    }
+
+    let obj_id = state.last_token.value.clone();
     lexical::next_token(state);
 
     // Método.
     if state.last_token.value == "(" {
-        if !list_comma(state, formal, ")") { return false };
-        
-        if !next_token_value(state, ":") { return false; }
-        if !next_token_type(state, TokenType::TypeID) { return false; }
+        let mut method = Method { object_id: obj_id, type_id: String::new(), formals: Vec::new() };
 
-        if !next_token_value(state, "{") { return false; }
+        match list_comma(state, formal, ")") {
+            Ok(list) => {method.formals = list;}
+            Err(list) => { method.formals = list; return Err(Feature::Method(method)); }
+        };
+        
+        if !next_token_value(state, ":") {
+            return Err(Feature::Method(method))
+        };
+        if !next_token_type(state, TokenType::TypeID) {
+            return Err(Feature::Method(method))
+        };
+
+        method.type_id = state.last_token.value.clone();
+
+        if !next_token_value(state, "{") {
+            return Err(Feature::Method(method))
+        };
+
         lexical::next_token(state);
-        if !expr(state) { return false; }
-        if !token_value(&state.last_token, "}") { return false; }
+
+        if !expr(state) {
+            return Err(Feature::Method(method))
+        };
+
+        if !token_value(&state.last_token, "}") {
+            return Err(Feature::Method(method))
+        };
         
         lexical::next_token(state);
+
+        return Ok(Feature::Method(method));
     }
     // Atributo.
     else if state.last_token.value == ":" {
-        if !next_token_type(state, TokenType::TypeID) { return false; }
+        attribute.object_id = obj_id;
+
+        if !next_token_type(state, TokenType::TypeID) {
+            return Err(Feature::Attribute(attribute))
+        };
         lexical::next_token(state);
 
         if state.last_token.value == "<-" {
             lexical::next_token(state);
-            return expr(state);
+            if !expr(state) {
+                return Err(Feature::Attribute(attribute))
+            };
         }
+
+        return Ok(Feature::Attribute(attribute));
     }
     else {
         eprintln!(
@@ -312,10 +407,8 @@ fn feature(state: &mut State<Program>) -> bool {
             state.last_token.line, state.last_token.value
         );
 
-        return false;
+        return Err(Feature::Attribute(attribute));
     }
-
-    return true;
 }
 
 fn class(state: &mut State<Program>) -> Result<Class, Class> {
@@ -340,7 +433,10 @@ fn class(state: &mut State<Program>) -> Result<Class, Class> {
     lexical::next_token(state);
 
     if state.last_token.value != "}" {
-        if !list_semicolon(state, feature, "}") {return Err(class)}
+        match list_semicolon(state, feature, "}") {
+            Ok(list) => { class.features = list; }
+            Err(list) => { class.features = list; return Err(class)}
+        }
     } else {
         if !token_value(&state.last_token, "}") { return Err(class); }
     }
