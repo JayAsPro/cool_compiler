@@ -177,7 +177,7 @@ fn extract_token_text(mut code: &str, mut line: usize) -> (String, &str, usize) 
     return (String::from(token_text), code, line);
 }
 
-pub fn next_token(state: &mut State) {
+pub fn next_token<T: Default>(state: &mut State<T>) {
     (state.last_token.value,
      state.next_code,
      state.last_token.line) = extract_token_text(state.next_code, state.last_token.line);

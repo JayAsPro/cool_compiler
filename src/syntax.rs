@@ -1,6 +1,38 @@
 use crate::common::*;
 use crate::lexical;
 
+#[derive(Debug)]
+struct Formal {
+    object_id: String,
+    type_id: String
+}
+
+#[derive(Debug)]
+enum Feature {
+    Attribute { object_id: String, type_id: String },
+    Method { object_id: String, type_id: String, formals: Vec<Formal> }
+}
+
+#[derive(Debug)]
+struct Class {
+    type_id: String,
+    inherits: String,
+    features: Vec<Feature>
+}
+
+#[derive(Debug)]
+struct Program {
+    classes: Vec<Class>
+}
+
+impl Default for Program {
+    fn default() -> Self {
+        Program {
+            classes: Vec::new()
+        }
+    }
+}
+
 fn token_value(token: &Token, string: &str) -> bool {
     if token.value.to_ascii_lowercase() != string {
         eprintln!(
@@ -27,18 +59,18 @@ fn token_type(token: &Token, tk_type: TokenType) -> bool {
     return true;
 }
 
-fn next_token_value(state: &mut State, string: &str) -> bool {
+fn next_token_value(state: &mut State<Program>, string: &str) -> bool {
     lexical::next_token(state);
     return token_value(&state.last_token, string);
 }
 
-fn next_token_type(state: &mut State, tk_type: TokenType) -> bool {
+fn next_token_type(state: &mut State<Program>, tk_type: TokenType) -> bool {
     lexical::next_token(state);
     return token_type(&state.last_token, tk_type);
 }
 
 fn list_semicolon(
-    state: &mut State, variable: fn(&mut State) -> bool, terminator: &str
+    state: &mut State<Program>, variable: fn(&mut State<Program>) -> bool, terminator: &str
 ) -> bool {
     loop {
         if !variable(state) { return false; }
@@ -50,7 +82,7 @@ fn list_semicolon(
 }
 
 fn list_comma(
-    state: &mut State, variable: fn(&mut State) -> bool, terminator: &str
+    state: &mut State<Program>, variable: fn(&mut State<Program>) -> bool, terminator: &str
 ) -> bool {
     lexical::next_token(state);
         
@@ -66,7 +98,7 @@ fn list_comma(
     return token_value(&state.last_token, terminator);
 }
 
-fn object_definition(state: &mut State) -> bool {
+fn object_definition(state: &mut State<Program>) -> bool {
     if !token_type(&state.last_token, TokenType::ObjectID) { return false; }
     if !next_token_value(state, ":") { return false; }
     if !next_token_type(state, TokenType::TypeID) { return false; }
@@ -80,7 +112,7 @@ fn object_definition(state: &mut State) -> bool {
     return true;
 }
 
-fn case_of(state: &mut State) -> bool {
+fn case_of(state: &mut State<Program>) -> bool {
     if !token_type(&state.last_token, TokenType::ObjectID) { return false; }
     if !next_token_value(state, ":") { return false; }
     if !next_token_type(state, TokenType::TypeID) { return false; }
@@ -94,7 +126,7 @@ fn case_of(state: &mut State) -> bool {
     return true;
 }
 
-fn expr(state: &mut State) -> bool {
+fn expr(state: &mut State<Program>) -> bool {
     match state.last_token.tk_type {
         TokenType::Integer => { lexical::next_token(state); }
         TokenType::String  => { lexical::next_token(state); }
@@ -237,7 +269,7 @@ fn expr(state: &mut State) -> bool {
     }
 }
 
-fn formal(state: &mut State) -> bool {
+fn formal(state: &mut State<Program>) -> bool {
     if !token_type(&state.last_token, TokenType::ObjectID) { return false; }
     if !next_token_value(state, ":") { return false; }
     if !next_token_type(state, TokenType::TypeID) { return false; }
@@ -246,7 +278,7 @@ fn formal(state: &mut State) -> bool {
     return true;
 }
 
-fn feature(state: &mut State) -> bool {
+fn feature(state: &mut State<Program>) -> bool {
     if !token_type(&state.last_token, TokenType::ObjectID) { return false; }
     lexical::next_token(state);
 
@@ -286,42 +318,56 @@ fn feature(state: &mut State) -> bool {
     return true;
 }
 
-fn class(state: &mut State) -> bool {
-    if !token_value(&state.last_token, "class") { return false; }
-    if !next_token_type(state, TokenType::TypeID) { return false; }
+fn class(state: &mut State<Program>) -> Result<Class, Class> {
+    let mut class = Class {
+        type_id: String::new(),
+        inherits: String::from("Object"),
+        features: Vec::new()
+    };
+    
+    if !token_value(&state.last_token, "class") { return Err(class); }
+    if !next_token_type(state, TokenType::TypeID) { return Err(class); }
+    class.type_id.push_str(&state.last_token.value);
 
     lexical::next_token(state);
     if state.last_token.value == "inherits" {
-        if !next_token_type(state, TokenType::TypeID) { return false; }
+        if !next_token_type(state, TokenType::TypeID) { return Err(class); }
+        class.inherits = state.last_token.value.clone();
         lexical::next_token(state);
     }
 
-    if !token_value(&state.last_token, "{") { return false; }
+    if !token_value(&state.last_token, "{") { return Err(class); }
     lexical::next_token(state);
 
     if state.last_token.value != "}" {
-        return list_semicolon(state, feature, "}");
+        if !list_semicolon(state, feature, "}") {return Err(class)}
     } else {
-        return token_value(&state.last_token, "}");
+        if !token_value(&state.last_token, "}") { return Err(class); }
     }
+
+    return Ok(class);
 }
 
 pub fn program(code: &str) -> bool {
-    let mut state = State::new(code);
+    let mut state = State::<Program>::new(code);
     lexical::next_token(&mut state);
 
     loop {
-        if !class(&mut state) { return false; }
+        match class(&mut state) {
+            Ok(class) => { state.tree.classes.push(class)}
+            Err(class) => { state.tree.classes.push(class); return false; }
+        }
+
         if !next_token_value(&mut state, ";") { return false; }
         
         lexical::next_token(&mut state);
-        if state.last_token.tk_type == TokenType::Eof { return true; }
+        if state.last_token.tk_type == TokenType::Eof { println!("{:#?}", state.tree); return true; }
     }
 }
 
 /* 
 pub fn token_loop(code: &str) {
-    let mut state = State::new(code);
+    let mut state = State<Program>::new(code);
 
     while state.last_token.tk_type != TokenType::Eof {
         lexical::next_token(&mut state);

@@ -33,15 +33,17 @@ impl Token {
     }
 }
 
-pub struct State<'a> {
+pub struct State<'a, T: Default> {
     pub last_token: Token,
+    pub tree: T,
     pub next_code: &'a str,
 }
 
-impl State<'_> {
-    pub fn new(code: &str) -> State<'_> {
+impl<T: Default> State<'_, T> {
+    pub fn new(code: &str) -> State<'_, T> {
         return State {
             last_token: Token::new(),
+            tree: T::default(),
             next_code: code,
         };
     }
