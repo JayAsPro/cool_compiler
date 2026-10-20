@@ -2,10 +2,98 @@ use crate::common::*;
 use crate::lexical;
 
 #[derive(Debug)]
-struct Attribute { object_id: String, type_id: String }
+enum Expr {
+    Constant {
+        type_id: String,
+        value: String
+    },
+
+    Identifier {
+        type_id: String,
+        object_id: String
+    },
+
+    Assigment {
+        type_id: String,
+        object_id: String,
+        expr: Box<Expr>
+    },
+
+    Dispatch {
+        type_id: String,
+        expr: Box<Expr>,
+        class: String,
+        object_id: String,
+        params: Vec<Expr>
+    },
+
+    Conditional {
+        type_id: String,
+        expr_if: Box<Expr>,
+        then: Box<Expr>,
+        expr_else: Box<Expr>
+    },
+
+    Loop {
+        type_id: String,
+        expr_while: Box<Expr>,
+        expr_loop: Box<Expr>
+    },
+    
+    Block {
+        type_id: String,
+        list: Vec<Expr>
+    },
+
+    Let {
+        type_id: String,
+        
+    },
+
+    Case {
+        type_id: String,
+        case: Box<Expr>
+    },
+
+    New {
+        type_id: String
+    },
+
+    Isvoid {
+        type_id: String,
+        expr: Box<Expr>
+    },
+
+    BinaryOperator {
+        type_id: String,
+        expr1: Box<Expr>,
+        op: String,
+        expr2: Box<Expr>
+    },
+
+    UnaryOperator {
+        type_id: String,
+        op: String,
+        expr: Box<Expr>
+    },
+
+    Nil
+}
 
 #[derive(Debug)]
-struct Method { object_id: String, type_id: String, formals: Vec<Formal> }
+struct Attribute {
+    object_id: String,
+    type_id: String,
+    expr: Expr
+}
+
+#[derive(Debug)]
+struct Method {
+    object_id: String,
+    type_id: String,
+    formals: Vec<Formal>,
+    expr: Expr
+}
 
 #[derive(Debug)]
 struct Formal {
@@ -23,7 +111,8 @@ enum Feature {
 struct Class {
     type_id: String,
     inherits: String,
-    features: Vec<Feature>
+    attributes: Vec<Attribute>,
+    methods: Vec<Method>
 }
 
 #[derive(Debug)]
@@ -76,7 +165,9 @@ fn next_token_type(state: &mut State<Program>, tk_type: TokenType) -> bool {
 }
 
 fn list_semicolon<T>(
-    state: &mut State<Program>, variable: fn(&mut State<Program>) -> Result<T, T>, terminator: &str
+    state: &mut State<Program>,
+    variable: fn(&mut State<Program>) -> Result<T, T>,
+    terminator: &str
 ) -> Result<Vec<T>, Vec<T>> {
     let mut list: Vec<T> = Vec::new();
 
@@ -105,7 +196,9 @@ fn list_semicolon_temp(
 }
 
 fn list_comma<T>(
-    state: &mut State<Program>, variable: fn(&mut State<Program>) -> Result<T, T>, terminator: &str
+    state: &mut State<Program>,
+    variable: fn(&mut State<Program>) -> Result<T, T>,
+    terminator: &str
 ) -> Result<Vec<T>, Vec<T>> {
     let mut list: Vec<T> = Vec::new();
     
@@ -337,7 +430,9 @@ fn formal(state: &mut State<Program>) -> Result<Formal, Formal> {
 
 fn feature(state: &mut State<Program>) -> Result<Feature, Feature> {
     let mut attribute = Attribute {
-        object_id: String::new(), type_id: String::new()
+        object_id: String::new(),
+        type_id: String::new(),
+        expr: Expr::Nil
     };
 
     if !token_type(&state.last_token, TokenType::ObjectID) {
@@ -349,7 +444,12 @@ fn feature(state: &mut State<Program>) -> Result<Feature, Feature> {
 
     // Método.
     if state.last_token.value == "(" {
-        let mut method = Method { object_id: obj_id, type_id: String::new(), formals: Vec::new() };
+        let mut method = Method {
+            object_id: obj_id,
+            type_id: String::new(),
+            formals: Vec::new(),
+            expr: Expr::Nil
+        };
 
         match list_comma(state, formal, ")") {
             Ok(list) => {method.formals = list;}
@@ -415,7 +515,8 @@ fn class(state: &mut State<Program>) -> Result<Class, Class> {
     let mut class = Class {
         type_id: String::new(),
         inherits: String::from("Object"),
-        features: Vec::new()
+        attributes: Vec::new(),
+        methods: Vec::new()
     };
     
     if !token_value(&state.last_token, "class") { return Err(class); }
@@ -434,8 +535,23 @@ fn class(state: &mut State<Program>) -> Result<Class, Class> {
 
     if state.last_token.value != "}" {
         match list_semicolon(state, feature, "}") {
-            Ok(list) => { class.features = list; }
-            Err(list) => { class.features = list; return Err(class)}
+            Ok(list) => {
+                for feature in list {
+                    match feature {
+                        Feature::Attribute(attribute) => { class.attributes.push(attribute) }
+                        Feature::Method(method) => { class.methods.push(method) }
+                    }
+                }
+            }
+            Err(list) => {
+                for feature in list {
+                    match feature {
+                        Feature::Attribute(attribute) => { class.attributes.push(attribute) }
+                        Feature::Method(method) => { class.methods.push(method) }
+                    }
+                }
+                return Err(class)
+            }
         }
     } else {
         if !token_value(&state.last_token, "}") { return Err(class); }
