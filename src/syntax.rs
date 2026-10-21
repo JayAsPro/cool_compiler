@@ -44,7 +44,7 @@ enum Expr {
     Dispatch {
         type_id: String,
         expr: Box<Expr>,
-        class: String,
+        from_type_id: String,
         object_id: String,
         params: Vec<Expr>
     },
@@ -52,7 +52,7 @@ enum Expr {
     Conditional {
         type_id: String,
         expr_if: Box<Expr>,
-        then: Box<Expr>,
+        expr_then: Box<Expr>,
         expr_else: Box<Expr>
     },
 
@@ -69,7 +69,8 @@ enum Expr {
 
     Let {
         type_id: String,
-        list: Vec<Attribute>
+        list: Vec<Attribute>,
+        expr: Box<Expr>
     },
 
     Case {
@@ -98,6 +99,16 @@ enum Expr {
         type_id: String,
         op: String,
         expr: Box<Expr>
+    },
+
+    Parenthesis {
+        type_id: String,
+        expr: Box<Expr>
+    },
+
+    List {
+        type_id: String,
+        list: Vec<Expr>
     },
 
     Nil
@@ -277,21 +288,69 @@ fn case_of(state: &mut State<Program>) -> bool {
 }
 
 fn expr(state: &mut State<Program>) -> bool {
+    let mut expr_node;
+    
     match state.last_token.tk_type {
-        TokenType::Integer => { lexical::next_token(state); }
-        TokenType::String  => { lexical::next_token(state); }
-        TokenType::Boolean => { lexical::next_token(state); }
+        TokenType::Integer => {
+            expr_node = Expr::Constant {
+                type_id: String::from("Int"),
+                value: state.last_token.value.clone()
+            };
+            
+            lexical::next_token(state);
+        }
+        
+        TokenType::String  => {
+            expr_node = Expr::Constant {
+                type_id: String::from("String"),
+                value: state.last_token.value.clone()
+            };
+            
+            lexical::next_token(state);
+        }
+        TokenType::Boolean => {
+            expr_node = Expr::Constant {
+                type_id: String::from("Bool"),
+                value: state.last_token.value.clone()
+            };
+            
+            lexical::next_token(state);
+        }
 
         TokenType::ObjectID => {
+            let obj_id = state.last_token.value.clone();
             lexical::next_token(state);
 
             if state.last_token.value == "<-" {
                 lexical::next_token(state);
                 if !expr(state) { return false; }
+
+                expr_node = Expr::Assigment {
+                    type_id: String::from(""),
+                    object_id: obj_id,
+                    expr: Box::new(Expr::Nil)
+                };
             }
             else if state.last_token.value == "(" {
                 if !list_comma_temp(state, expr, ")") { return false; }
+
+                expr_node = Expr::Dispatch {
+                    type_id: String::from(""),
+                    expr: Box::new(Expr::Identifier {
+                        type_id: String::from("SELF_TYPE"),
+                        object_id: String::from("self")
+                    }),
+                    from_type_id: String::from("SELF_TYPE"),
+                    object_id: obj_id,
+                    params: Vec::new()
+                };
+                
                 lexical::next_token(state);
+            } else {
+                expr_node = Expr::Identifier {
+                    type_id: String::from(""),
+                    object_id: obj_id 
+                }
             }
         }
 
@@ -299,27 +358,55 @@ fn expr(state: &mut State<Program>) -> bool {
             match state.last_token.value.as_str() {
                 "new" => {
                     if !next_token_type(state, TokenType::TypeID) { return false; }
+
+                    expr_node = Expr::New {
+                        type_id: state.last_token.value.clone()
+                    };
+                    
                     lexical::next_token(state);
                 }
 
                 "isvoid" => {
                     lexical::next_token(state);
                     if !expr(state) { return false; }
+
+                    expr_node = Expr::Isvoid {
+                        type_id: String::from(""),
+                        expr: Box::new(Expr::Nil)
+                    };
                 }
 
                 "~" => {
                     lexical::next_token(state);
                     if !expr(state) { return false; }
+
+                    expr_node = Expr::UnaryOperator {
+                        type_id: String::from(""),
+                        op: String::from("~"),
+                        expr: Box::new(Expr::Nil)
+                    };
                 }
 
                 "not" => {
                     lexical::next_token(state);
                     if !expr(state) { return false; }
+
+                    expr_node = Expr::UnaryOperator {
+                        type_id: String::from(""),
+                        op: String::from("not"),
+                        expr: Box::new(Expr::Nil)
+                    };
                 }
 
                 "(" => {
                     lexical::next_token(state);
                     if !expr(state) { return false; }
+
+                    expr_node = Expr::Parenthesis {
+                        type_id: String::from(""),
+                        expr: Box::new(Expr::Nil)
+                    };
+                    
                     if !token_value(&state.last_token, ")") { return false; }
                     lexical::next_token(state);
                 }
@@ -327,6 +414,12 @@ fn expr(state: &mut State<Program>) -> bool {
                 "{" => {
                     lexical::next_token(state);
                     if !list_semicolon_temp(state, expr, "}") { return false; }
+
+                    expr_node = Expr::List {
+                        type_id: String::from(""),
+                        list: Vec::new()
+                    };
+                    
                     lexical::next_token(state);
                 }
 
@@ -344,6 +437,13 @@ fn expr(state: &mut State<Program>) -> bool {
 
                     if !token_value(&state.last_token, "fi") { return false; }
                     lexical::next_token(state);
+
+                    expr_node = Expr::Conditional {
+                        type_id: String::from(""),
+                        expr_if: Box::new(Expr::Nil),
+                        expr_then: Box::new(Expr::Nil),
+                        expr_else: Box::new(Expr::Nil)
+                    };
                 }
 
                 "while" => {
@@ -356,12 +456,24 @@ fn expr(state: &mut State<Program>) -> bool {
                     
                     if !token_value(&state.last_token, "pool") { return false; }
                     lexical::next_token(state);
+
+                    expr_node = Expr::Loop {
+                        type_id: String::from(""),
+                        expr_while: Box::new(Expr::Nil),
+                        expr_loop: Box::new(Expr::Nil)
+                    };
                 }
 
                 "let" => {
                     if !list_comma_temp(state, object_definition, "in") { return false; }
                     lexical::next_token(state);
                     if !expr(state) { return false; }
+
+                    expr_node = Expr::Let {
+                        type_id: String::from(""),
+                        list: Vec::new(),
+                        expr: Box::new(Expr::Nil)
+                    };
                 }
 
                 "case" => {
@@ -373,6 +485,12 @@ fn expr(state: &mut State<Program>) -> bool {
                     if !list_semicolon_temp(state, case_of, "esac") { return false; }
 
                     lexical::next_token(state);
+
+                    expr_node = Expr::Case {
+                        type_id: String::from(""),
+                        case: Box::new(Expr::Nil),
+                        list: Vec::new()
+                    };
                 }
 
                 _ => {
@@ -381,6 +499,7 @@ fn expr(state: &mut State<Program>) -> bool {
                         state.last_token.line, state.last_token.value
                     );
 
+                    expr_node = Expr::Nil;
                     return false;
                 }
             }
@@ -390,28 +509,62 @@ fn expr(state: &mut State<Program>) -> bool {
     loop {
         match state.last_token.value.as_str() {
             "@" => {
+                let from_type_id;
+                let object_id;
+                
                 if !next_token_type(state, TokenType::TypeID) { return false; }
+                from_type_id = state.last_token.value.clone();
+                
                 if !next_token_value(state, ".") { return false; }
+                
                 if !next_token_type(state, TokenType::ObjectID) { return false; }
+                object_id = state.last_token.value.clone();
 
                 if !next_token_value(state, "(") { return false; }
                 if !list_comma_temp(state, expr, ")") { return false; }
 
                 lexical::next_token(state);
+
+                expr_node = Expr::Dispatch {
+                    type_id: String::from(""),
+                    expr: Box::new(expr_node),
+                    from_type_id: from_type_id,
+                    object_id: object_id,
+                    params: Vec::new()
+                };
             }
 
             "." => {
+                let object_id;
+                
                 if !next_token_type(state, TokenType::ObjectID) { return false; }
+                object_id = state.last_token.value.clone();
 
                 if !next_token_value(state, "(") { return false; }
                 if !list_comma_temp(state, expr, ")") { return false; }
                 
                 lexical::next_token(state);
+
+                expr_node = Expr::Dispatch {
+                    type_id: String::from(""),
+                    expr: Box::new(expr_node),
+                    from_type_id: String::from(""),
+                    object_id: object_id,
+                    params: Vec::new()
+                };
             }
 
             "+" | "-" | "*" | "/" | "<" | "<=" | "=" => {
+                let op = state.last_token.value.clone();
                 lexical::next_token(state);
                 if !expr(state) { return false; }
+
+                expr_node = Expr::BinaryOperator {
+                    type_id: String::from(""),
+                    expr1: Box::new(expr_node),
+                    op: op,
+                    expr2: Box::new(Expr::Nil)
+                };
             }
             
             &_ => { return true; }
