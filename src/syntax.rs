@@ -2,6 +2,28 @@ use crate::common::*;
 use crate::lexical;
 
 #[derive(Debug)]
+struct Attribute {
+    object_id: String,
+    type_id: String,
+    expr: Expr
+}
+
+#[derive(Debug)]
+struct Method {
+    object_id: String,
+    type_id: String,
+    formals: Vec<Formal>,
+    expr: Expr
+}
+
+#[derive(Debug)]
+struct CaseOfBranch {
+    object_id: String,
+    type_id: String,
+    expr: Expr
+}
+
+#[derive(Debug)]
 enum Expr {
     Constant {
         type_id: String,
@@ -47,12 +69,13 @@ enum Expr {
 
     Let {
         type_id: String,
-        
+        list: Vec<Attribute>
     },
 
     Case {
         type_id: String,
-        case: Box<Expr>
+        case: Box<Expr>,
+        list: Vec<CaseOfBranch>
     },
 
     New {
@@ -78,21 +101,6 @@ enum Expr {
     },
 
     Nil
-}
-
-#[derive(Debug)]
-struct Attribute {
-    object_id: String,
-    type_id: String,
-    expr: Expr
-}
-
-#[derive(Debug)]
-struct Method {
-    object_id: String,
-    type_id: String,
-    formals: Vec<Formal>,
-    expr: Expr
 }
 
 #[derive(Debug)]
