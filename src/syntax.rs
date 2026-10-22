@@ -365,7 +365,7 @@ fn erro_semantico<T: std::fmt::Debug>(node: &T, token: &Token, message: &str) {
 }
 
 fn type_exists<'a>(mut type_id: &'a str, classes: &'a Vec<Class>) -> bool {
-    return type_and_parents(type_id, &classes).is_empty()
+    return !type_and_parents(type_id, &classes).is_empty()
 }
 
 fn list_semicolon<T>(
@@ -1021,7 +1021,7 @@ fn class(state: &mut State<Program>) -> Result<Class, Class> {
             &_ => ()
         }
         
-        if !type_exists(&class.type_id, &state.tree.classes) {
+        if !type_exists(&class.inherits, &state.tree.classes) {
             erro_semantico(&class, &state.last_token, "tipo herdado não definido");
             return Err(class);
         }
@@ -1082,7 +1082,7 @@ pub fn program(code: &str) -> bool {
         
         lexical::next_token(&mut state);
         if state.last_token.tk_type == TokenType::Eof {
-            // println!("{:#?}", state.tree);
+            println!("{:#?}", state.tree);
             return true;
         }
     }
