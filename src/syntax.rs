@@ -142,7 +142,147 @@ struct Program {
 impl Default for Program {
     fn default() -> Self {
         Program {
-            classes: Vec::new()
+            classes: vec![
+                Class {
+                    type_id: String::from("Object"),
+                    inherits: String::new(),
+                    attributes: Vec::new(),
+
+                    methods: vec![
+                        Method {
+                            object_id: String::from("abort"),
+                            type_id: String::from("Object"),
+                            formals: Vec::new(),
+                            expr: Expr::Nil
+                        },
+
+                        Method {
+                            object_id: String::from("type_name"),
+                            type_id: String::from("String"),
+                            formals: Vec::new(),
+                            expr: Expr::Nil
+                        },
+
+                        Method {
+                            object_id: String::from("copy"),
+                            type_id: String::from("SELF_TYPE"),
+                            formals: Vec::new(),
+                            expr: Expr::Nil
+                        }
+                    ]
+                },
+
+                Class {
+                    type_id: String::from("Int"),
+                    inherits: String::new(),
+                    attributes: Vec::new(),
+                    methods: Vec::new()
+                },
+
+                Class {
+                    type_id: String::from("Bool"),
+                    inherits: String::new(),
+                    attributes: Vec::new(),
+                    methods: Vec::new()
+                },
+
+                Class {
+                    type_id: String::from("String"),
+                    inherits: String::new(),
+                    attributes: Vec::new(),
+                    methods: vec![
+                        Method {
+                            object_id: String::from("lenght"),
+                            type_id: String::from("Int"),
+                            formals: Vec::new(),
+                            expr: Expr::Nil
+                        },
+
+                        Method {
+                            object_id: String::from("concat"),
+                            type_id: String::from("String"),
+                            
+                            formals: vec![
+                                Formal {
+                                    object_id: String::from("s"),
+                                    type_id: String::from("String")
+                                }
+                            ],
+
+                            expr: Expr::Nil
+                        },
+
+                        Method {
+                            object_id: String::from("substr"),
+                            type_id: String::from("SELF_TYPE"),
+
+                            formals: vec![
+                                Formal {
+                                    object_id: String::from("i"),
+                                    type_id: String::from("Int")
+                                },
+
+                                Formal {
+                                    object_id: String::from("l"),
+                                    type_id: String::from("Int")
+                                }
+                            ],
+
+                            expr: Expr::Nil
+                        }
+                    ]
+                },
+
+                Class {
+                    type_id: String::from("IO"),
+                    inherits: String::new(),
+                    attributes: Vec::new(),
+
+                    methods: vec![
+                        Method {
+                            object_id: String::from("out_string"),
+                            type_id: String::from("SELF_TYPE"),
+
+                            formals: vec![
+                                Formal {
+                                    object_id: String::from("x"),
+                                    type_id: String::from("String")
+                                }
+                            ],
+
+                            expr: Expr::Nil
+                        },
+
+                        Method {
+                            object_id: String::from("out_int"),
+                            type_id: String::from("SELF_TYPE"),
+
+                            formals: vec![
+                                Formal {
+                                    object_id: String::from("x"),
+                                    type_id: String::from("Int")
+                                }
+                            ],
+
+                            expr: Expr::Nil
+                        },
+
+                        Method {
+                            object_id: String::from("in_string"),
+                            type_id: String::from("String"),
+                            formals: Vec::new(),
+                            expr: Expr::Nil
+                        },
+
+                        Method {
+                            object_id: String::from("in_int"),
+                            type_id: String::from("Int"),
+                            formals: Vec::new(),
+                            expr: Expr::Nil
+                        }
+                    ]
+                }
+            ]
         }
     }
 }
@@ -830,6 +970,7 @@ fn class(state: &mut State<Program>) -> Result<Class, Class> {
 
 pub fn program(code: &str) -> bool {
     let mut state = State::<Program>::new(code);
+
     lexical::next_token(&mut state);
 
     loop {
