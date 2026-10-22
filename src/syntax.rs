@@ -114,6 +114,29 @@ enum Expr {
     Nil
 }
 
+impl Expr {
+    fn type_id(&self) -> &str {
+        return match self {
+            Expr::Constant { type_id, ..} => type_id,
+            Expr::Identifier { type_id, ..} => type_id,
+            Expr::Assigment { type_id, ..} => type_id,
+            Expr::Dispatch { type_id, ..} => type_id,
+            Expr::Conditional { type_id, ..} => type_id,
+            Expr::Loop { type_id, ..} => type_id,
+            Expr::Block { type_id, ..} => type_id,
+            Expr::Let { type_id, ..} => type_id,
+            Expr::Case { type_id, ..} => type_id,
+            Expr::New { type_id, ..} => type_id,
+            Expr::Isvoid { type_id, ..} => type_id,
+            Expr::BinaryOperator { type_id, ..} => type_id,
+            Expr::UnaryOperator { type_id, ..} => type_id,
+            Expr::Parenthesis { type_id, ..} => type_id,
+            Expr::List { type_id, ..} => type_id,
+            Expr::Nil => ""
+        }
+    }
+}
+
 #[derive(Debug)]
 struct Formal {
     object_id: String,
@@ -285,6 +308,19 @@ impl Default for Program {
             ]
         }
     }
+}
+
+fn find_class_and_parents<'a>(mut type_id: &'a str, classes: &'a Vec<Class>) -> Vec<&'a str> {
+    let mut type_ids: Vec<&'a str> = Vec::new();
+
+    for class in classes.iter().rev() {
+        if class.type_id == type_id {
+            type_ids.push(&class.type_id);
+            type_id = &class.type_id;
+        }
+    }
+
+    return type_ids;
 }
 
 fn token_value(token: &Token, string: &str) -> bool {
