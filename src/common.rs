@@ -1,3 +1,5 @@
+pub use crate::ast::*;
+
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum TokenType {
@@ -33,17 +35,17 @@ impl Token {
     }
 }
 
-pub struct State<'a, T: Default> {
+pub struct State<'a> {
     pub last_token: Token,
-    pub tree: T,
+    pub ast: Program,
     pub next_code: &'a str,
 }
 
-impl<T: Default> State<'_, T> {
-    pub fn new(code: &str) -> State<'_, T> {
+impl State<'_> {
+    pub fn new(code: &str) -> State<'_> {
         return State {
             last_token: Token::new(),
-            tree: T::default(),
+            ast: Program::default(),
             next_code: code,
         };
     }

@@ -3,6 +3,8 @@ use std::fs;
 
 mod common;
 mod lexical;
+mod ast;
+mod semantic;
 mod syntax;
 
 fn main() {
