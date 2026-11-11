@@ -103,32 +103,20 @@ pub enum Expr {
         expr: Box<Expr>
     },
 
-    List {
-        type_id: String,
-        list: Vec<Expr>
-    },
-
     Nil
 }
 
 impl Expr {
     pub fn type_id(&self) -> String {
         return match self {
-            Expr::Constant { type_id, ..} => type_id,
-            Expr::Identifier { type_id, ..} => type_id,
-            Expr::Assigment { type_id, ..} => type_id,
-            Expr::Dispatch { type_id, ..} => type_id,
-            Expr::Conditional { type_id, ..} => type_id,
-            Expr::Loop { type_id, ..} => type_id,
-            Expr::Block { type_id, ..} => type_id,
-            Expr::Let { type_id, ..} => type_id,
-            Expr::Case { type_id, ..} => type_id,
-            Expr::New { type_id, ..} => type_id,
-            Expr::Isvoid { type_id, ..} => type_id,
-            Expr::BinaryOperator { type_id, ..} => type_id,
-            Expr::UnaryOperator { type_id, ..} => type_id,
-            Expr::Parenthesis { type_id, ..} => type_id,
-            Expr::List { type_id, ..} => type_id,
+              Expr::Constant      { type_id, ..} | Expr::Identifier     { type_id, ..}
+            | Expr::Assigment     { type_id, ..} | Expr::Dispatch       { type_id, ..}
+            | Expr::Conditional   { type_id, ..} | Expr::Loop           { type_id, ..}
+            | Expr::Block         { type_id, ..} | Expr::Let            { type_id, ..}
+            | Expr::Case          { type_id, ..} | Expr::New            { type_id, ..}
+            | Expr::Isvoid        { type_id, ..} | Expr::BinaryOperator { type_id, ..}
+            | Expr::UnaryOperator { type_id, ..} | Expr::Parenthesis    { type_id, ..}
+                => type_id,
             Expr::Nil => ""
         }.to_string()
     }

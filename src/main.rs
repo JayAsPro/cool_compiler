@@ -20,6 +20,11 @@ fn main() {
         return;
     };
     
-    syntax::program(&code);
+    let mut state = common::State::new(&code);
+
+    if syntax::program(&mut state) {
+        state.ast.semantic();
+    }
+    
     // syntax::token_loop(&code);
 }

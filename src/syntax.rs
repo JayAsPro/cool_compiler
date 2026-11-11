@@ -307,7 +307,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                         Err(list) => { return Err(Expr::Nil) }
                     }
 
-                    expr_node = Expr::List {
+                    expr_node = Expr::Block {
                         type_id: match expr_list.last() {
                             Some(expr) => expr.type_id(),
                             None => String::new()
@@ -553,10 +553,7 @@ fn formal(state: &mut State) -> Result<Formal, Formal> {
 
     lexical::next_token(state);
     
-    return match formal.semantic(&state.ast) {
-        false => Err(formal),
-        true => Ok(formal)
-    }
+    return Ok(formal)
 }
 
 fn feature(state: &mut State) -> Result<Feature, Feature> {
@@ -613,10 +610,7 @@ fn feature(state: &mut State) -> Result<Feature, Feature> {
         
         lexical::next_token(state);
 
-        return match method.semantic(&state.ast) {
-            true => Ok(Feature::Method(method)),
-            false => Err(Feature::Method(method))
-        }
+        return Ok(Feature::Method(method))
     }
     // Atributo.
     else if state.last_token.value == ":" {
@@ -639,10 +633,7 @@ fn feature(state: &mut State) -> Result<Feature, Feature> {
             };
         }
 
-        return match attribute.semantic(&state.ast) {
-            true => Ok(Feature::Attribute(attribute)),
-            false => Err(Feature::Attribute(attribute))
-        }
+        return Ok(Feature::Attribute(attribute))
     }
     else {
         eprintln!(
@@ -701,19 +692,14 @@ fn class(state: &mut State) -> Result<Class, Class> {
         if !token_value(&state.last_token, "}") { return Err(class); }
     }
 
-    return match class.semantic(&state.ast) {
-        false => Err(class),
-        true => Ok(class)
-    }
+    return Ok(class)
 }
 
-pub fn program(code: &str) -> bool {
-    let mut state = State::new(code);
-
-    lexical::next_token(&mut state);
+pub fn program(state: &mut State) -> bool {
+    lexical::next_token(state);
 
     loop {
-        match class(&mut state) {
+        match class(state) {
             Ok(class) => { state.ast.classes.push(class) }
 
             Err(class) => {
@@ -723,14 +709,13 @@ pub fn program(code: &str) -> bool {
             }
         }
 
-        if !next_token_value(&mut state, ";") {
+        if !next_token_value(state, ";") {
             // println!("{:#?}", state.ast);
             return false;
         }
         
-        lexical::next_token(&mut state);
-        if state.last_token.tk_type == TokenType::Eof {
-            if !state.ast.semantic() { return false }  
+        lexical::next_token(state);
+        if state.last_token.tk_type == TokenType::Eof {  
             println!("{:#?}", state.ast);
             return true;
         }
