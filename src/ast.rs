@@ -115,8 +115,8 @@ impl Expr {
             | Expr::Block         { type_id, ..} | Expr::Let            { type_id, ..}
             | Expr::Case          { type_id, ..} | Expr::New            { type_id, ..}
             | Expr::Isvoid        { type_id, ..} | Expr::BinaryOperator { type_id, ..}
-            | Expr::UnaryOperator { type_id, ..} | Expr::Parenthesis    { type_id, ..}
-                => type_id,
+            | Expr::UnaryOperator { type_id, ..} | Expr::Parenthesis    { type_id, ..} => type_id,
+            
             Expr::Nil => ""
         }.to_string()
     }
