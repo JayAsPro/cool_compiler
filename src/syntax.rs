@@ -716,7 +716,7 @@ pub fn program(state: &mut State) -> bool {
         
         lexical::next_token(state);
         if state.last_token.tk_type == TokenType::Eof {  
-            println!("{:#?}", state.ast);
+            // println!("{:#?}", state.ast);
             return true;
         }
     }

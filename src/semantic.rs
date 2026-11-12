@@ -5,25 +5,12 @@ fn erro_semantico<T: std::fmt::Debug>(node: &T, message: &str) {
     eprintln!("ERRO SEMÂNTICO (linha ): {}.", message);
 }
 
-fn type_and_parents<'a>(mut type_id: &'a str, classes: &'a Vec<Class>) -> Vec<&'a str> {
-    let mut type_ids: Vec<&'a str> = Vec::new();
-
-    for class in classes.iter().rev() {
-        if class.type_id == type_id {
-            type_ids.push(&class.type_id);
-            type_id = &class.inherits;
-        }
-    }
-
-    return type_ids;
-}
-
-fn type_exists<'a>(type_id: &'a str, classes: &'a Vec<Class>) -> bool {
-    return !type_and_parents(type_id, classes).is_empty()
+fn type_exists(type_id: &str, classes: &[Class]) -> bool {
+    return classes.iter().any(|class| class.type_id == type_id)
 }
 
 impl Attribute {
-    pub fn semantic(&self, classes: &Vec<Class>) -> bool {
+    pub fn semantic(&self, classes: &[Class]) -> bool {
         if self.type_id != "SELF_TYPE" && !type_exists(&self.type_id, classes) {
             erro_semantico(self, "tipo não definido");
             return false
@@ -34,7 +21,7 @@ impl Attribute {
 }
 
 impl Method {
-    pub fn semantic(&self, classes: &Vec<Class>) -> bool {
+    pub fn semantic(&self, classes: &[Class]) -> bool {
         if self.type_id != "SELF_TYPE" && !type_exists(&self.type_id, classes) {
             erro_semantico(self, "tipo não definido");
             return false
@@ -49,7 +36,7 @@ impl Method {
 }
 
 impl Formal {
-    pub fn semantic(&self, classes: &Vec<Class>) -> bool {
+    pub fn semantic(&self, classes: &[Class]) -> bool {
         if !type_exists(&self.type_id, classes) {
             erro_semantico(self, "tipo não definido");
             return false;
@@ -60,7 +47,7 @@ impl Formal {
 }
 
 impl Class {
-    pub fn semantic(&self, classes: &Vec<Class>) -> bool {
+    fn check_type_and_inheritance(&self, classes: &[Class]) -> bool {
         if classes.iter().filter(|class| class.type_id == self.type_id).count() > 1 {
             erro_semantico(self, "redefinição de tipo");
             return false;
@@ -80,12 +67,36 @@ impl Class {
             return false;
         }
 
+        return true
+    }
+
+    fn type_and_parents<'a>(&'a self, classes: &'a [Class]) -> Vec<Environment<'a>> {
+        let mut env_stack: Vec<Environment<'a>> = vec![Environment::Class(self)];
+        let mut inherits = self.inherits.as_str();
+
+        while let Some(class) = classes.iter().find(
+            |class| class.type_id == inherits
+        ) {
+            env_stack.push(Environment::Class(&class));
+            inherits = &class.inherits;
+        }
+
+        env_stack.reverse();
+        return env_stack
+    }
+
+    // Assume que a verificação de tipo e de herança (class.check_type_and_inheritance(...))
+    // já tenha sido feita.
+    pub fn semantic(&self, classes: &[Class]) -> bool {
+        let mut env_stack = self.type_and_parents(classes);
+
+        println!("{:#?}", env_stack);
+
         if !self.attributes.iter().all(|attribute| attribute.semantic(classes)) {
             return false
         }
 
         return self.methods.iter().all(|method| method.semantic(classes))
-
     }
 }
 
@@ -97,6 +108,12 @@ impl Program {
             if let Some(_) = main_class.methods.iter().find(
                 |&method| method.object_id == "main"
             ) {
+                if !self.classes.iter().all(
+                    |class| class.check_type_and_inheritance(&self.classes)
+                ) {
+                    return false
+                }
+
                 return self.classes.iter().all(|class| class.semantic(&self.classes))
             } else {
                 erro_semantico(self, "método main não definido na classe Main");
