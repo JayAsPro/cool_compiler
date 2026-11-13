@@ -182,7 +182,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                 match expr(state) {
                     Ok(expr) => { sub_expr = expr }
-                    Err(expr) => { return Err(Expr::Nil); }
+                    Err(_) => { return Err(Expr::Nil); }
                 };
 
                 expr_node = Expr::Assigment {
@@ -196,7 +196,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                 match list_comma(state, expr, ")") {
                     Ok(list) => { params = list  }
-                    Err(list) => { return Err(Expr::Nil) }
+                    Err(_) => { return Err(Expr::Nil) }
                 }
 
                 expr_node = Expr::Dispatch {
@@ -207,7 +207,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                         object_id: String::from("self")
                     }),
                     
-                    from_type_id: String::from("SELF_TYPE"),
+                    from_type_id: String::new(),
                     object_id: obj_id,
                     params: params
                 };
@@ -215,7 +215,11 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                 lexical::next_token(state);
             } else {
                 expr_node = Expr::Identifier {
-                    type_id: String::from(""),
+                    type_id: match obj_id.as_str() {
+                        "self" => String::from("SELF_TYPE"),
+                        &_ => String::new()
+                    },
+
                     object_id: obj_id 
                 }
             }
@@ -239,7 +243,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { sub_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::Isvoid {
@@ -254,7 +258,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { sub_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::UnaryOperator {
@@ -270,7 +274,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { sub_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::UnaryOperator {
@@ -286,7 +290,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { sub_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::Parenthesis {
@@ -304,7 +308,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match list_semicolon(state, expr, "}") {
                         Ok(list) => { expr_list = list; }
-                        Err(list) => { return Err(Expr::Nil) }
+                        Err(_) => { return Err(Expr::Nil) }
                     }
 
                     expr_node = Expr::Block {
@@ -328,7 +332,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                     
                     match expr(state) {
                         Ok(expr) => { if_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
                     
                     if !token_value(&state.last_token, "then") { return Err(Expr::Nil); }
@@ -336,7 +340,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { then_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
                     
                     if !token_value(&state.last_token, "else") { return Err(Expr::Nil); }
@@ -344,7 +348,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { else_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::Conditional {
@@ -366,7 +370,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                     
                     match expr(state) {
                         Ok(expr) => { while_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
                     
                     if !token_value(&state.last_token, "loop") { return Err(Expr::Nil); }
@@ -374,7 +378,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { loop_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::Loop {
@@ -393,14 +397,14 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match list_comma(state, object_definition, "in") {
                         Ok(list) => { attribs = list}
-                        Err(list) => { return Err(Expr::Nil)}
+                        Err(_) => { return Err(Expr::Nil)}
                     }
 
                     lexical::next_token(state);
 
                     match expr(state) {
                         Ok(expr) => { sub_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     };
 
                     expr_node = Expr::Let {
@@ -418,7 +422,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { case = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     };
 
                     if !token_value(&state.last_token, "of") { return Err(Expr::Nil); }
@@ -427,14 +431,14 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     match list_semicolon(state, case_of, "esac") {
                         Ok(list) => { branches = list}
-                        Err(list) => { return Err(Expr::Nil)}
+                        Err(_) => { return Err(Expr::Nil)}
                     }
 
                     lexical::next_token(state);
 
                     expr_node = Expr::Case {
                         type_id: String::from(""),
-                        case: Box::new(Expr::Nil),
+                        case: Box::new(case),
                         list: branches
                     };
                 }
@@ -470,7 +474,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                 match list_comma(state, expr, ")") {
                     Ok(list) => { params = list  }
-                    Err(list) => { return Err(Expr::Nil) }
+                    Err(_) => { return Err(Expr::Nil) }
                 }
 
                 lexical::next_token(state);
@@ -486,7 +490,6 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
             "." => {
                 let object_id;
-                let from_type_id = expr_node.type_id();
                 let params;
                 
                 if !next_token_type(state, TokenType::ObjectID) { return Err(Expr::Nil); }
@@ -496,7 +499,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                 match list_comma(state, expr, ")") {
                     Ok(list) => { params = list  }
-                    Err(list) => { return Err(Expr::Nil) }
+                    Err(_) => { return Err(Expr::Nil) }
                 }
                 
                 lexical::next_token(state);
@@ -504,7 +507,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                 expr_node = Expr::Dispatch {
                     type_id: String::from(""),
                     expr: Box::new(expr_node),
-                    from_type_id: from_type_id,
+                    from_type_id: String::new(),
                     object_id: object_id,
                     params: params
                 };
@@ -518,7 +521,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                 
                 match expr(state) {
                     Ok(expr) => { expr2 = expr }
-                    Err(expr) => { return Err(Expr::Nil); }
+                    Err(_) => { return Err(Expr::Nil); }
                 };
 
                 expr_node = Expr::BinaryOperator {
