@@ -9,6 +9,17 @@ fn type_exists(type_id: &str, classes: &[Class]) -> bool {
     return classes.iter().any(|class| class.type_id == type_id)
 }
 
+impl Formal {
+    pub fn semantic(&self, classes: &[Class]) -> bool {
+        if !type_exists(&self.type_id, classes) {
+            erro_semantico(self, "tipo não definido");
+            return false;
+        }
+
+        return true
+    }
+}
+
 impl Attribute {
     pub fn semantic(&self, classes: &[Class]) -> bool {
         if self.type_id != "SELF_TYPE" && !type_exists(&self.type_id, classes) {
@@ -29,17 +40,6 @@ impl Method {
 
         if !self.formals.iter().all(|formal| formal.semantic(classes)) {
             return false
-        }
-
-        return true
-    }
-}
-
-impl Formal {
-    pub fn semantic(&self, classes: &[Class]) -> bool {
-        if !type_exists(&self.type_id, classes) {
-            erro_semantico(self, "tipo não definido");
-            return false;
         }
 
         return true
@@ -70,28 +70,7 @@ impl Class {
         return true
     }
 
-    fn type_and_parents<'a>(&'a self, classes: &'a [Class]) -> Vec<Environment<'a>> {
-        let mut env_stack: Vec<Environment<'a>> = vec![Environment::Class(self)];
-        let mut inherits = self.inherits.as_str();
-
-        while let Some(class) = classes.iter().find(
-            |class| class.type_id == inherits
-        ) {
-            env_stack.push(Environment::Class(&class));
-            inherits = &class.inherits;
-        }
-
-        env_stack.reverse();
-        return env_stack
-    }
-
-    // Assume que a verificação de tipo e de herança (class.check_type_and_inheritance(...))
-    // já tenha sido feita.
     pub fn semantic(&self, classes: &[Class]) -> bool {
-        let mut env_stack = self.type_and_parents(classes);
-
-        println!("{:#?}", env_stack);
-
         if !self.attributes.iter().all(|attribute| attribute.semantic(classes)) {
             return false
         }
