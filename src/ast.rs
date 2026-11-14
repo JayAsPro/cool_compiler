@@ -123,6 +123,7 @@ impl Expr {
 }
 
 #[derive(Debug)]
+#[derive(Clone)]
 pub struct Formal {
     pub object_id: String,
     pub type_id: String

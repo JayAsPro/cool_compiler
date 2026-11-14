@@ -1,6 +1,13 @@
 pub use crate::ast::*;
 
 #[derive(Debug)]
+pub enum Environment<'a> {
+    Class(&'a Class),
+    Method(&'a Method),
+    Expr(&'a Expr)
+}
+
+#[derive(Debug)]
 #[derive(PartialEq)]
 pub enum TokenType {
     Start,
