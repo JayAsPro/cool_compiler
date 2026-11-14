@@ -107,7 +107,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn type_id(&self) -> String {
+    pub fn self_type_id(&self) -> String {
         return match self {
               Expr::Constant      { type_id, ..} | Expr::Identifier     { type_id, ..}
             | Expr::Assigment     { type_id, ..} | Expr::Dispatch       { type_id, ..}

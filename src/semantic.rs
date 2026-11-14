@@ -9,22 +9,190 @@ fn class_exists(type_id: &str, classes: &[Class]) -> bool {
     return classes.iter().any(|class| class.type_id == type_id)
 }
 
-fn class_and_parents<'a>(mut type_id: &str, classes: &'a [Class]) -> Vec<Environment<'a>> {
+fn class_and_parents<'a>(mut type_id: &'a str, classes: &'a [Class]) -> Vec<Environment<'a>> {
     let mut env_stack = Vec::new();
 
-    if let Some(class) = classes.iter().find(|class| class.type_id == type_id) {
-        env_stack.push(Environment::Class(&class));
-        
-        let mut inherits = class.inherits.as_str();
-
-        while let Some(class) = classes.iter().find(|class| class.type_id == inherits) {
-            env_stack.push(Environment::Class(&class));
-            inherits = &class.inherits;
-        }
+    while let Some(class) = classes.iter().find(|class| class.type_id == type_id) {
+        env_stack.push(Environment::Class(class));
+        type_id = &class.inherits
     }
     
     env_stack.reverse();
     return env_stack
+}
+
+fn fill_self_type<'a>(type_id: &'a str, env_stack: &Vec<Environment<'a>>) -> &'a str {
+    if type_id == "SELF_TYPE" {
+        for environment in env_stack.iter().rev() {
+            if let Environment::Class(class) = environment {
+                return &class.type_id
+            }
+        }
+    }
+
+    return type_id
+}
+
+fn nearest_parent<'a>(
+    mut type_id_1: &'a str, mut type_id_2: &'a str, env_stack: &Vec<Environment<'a>>, classes: &[Class]
+) -> String {
+    let mut nearest_type_id = "";
+
+    type_id_1 = fill_self_type(type_id_1, env_stack);
+    type_id_2 = fill_self_type(type_id_2, env_stack);
+
+    let env_stack_1 = class_and_parents(type_id_1, classes);
+    let env_stack_2 = class_and_parents(type_id_2, classes);
+
+    for matching_envs in env_stack_1.into_iter().zip(env_stack_2) {
+        match matching_envs {
+            (Environment::Class(class_1), Environment::Class(class_2)) => {
+                if class_1.type_id != class_2.type_id { break }
+                nearest_type_id = &class_1.type_id;
+            }
+
+            _ => break
+        }
+    }
+
+    return String::from(nearest_type_id)
+}
+
+fn attribute_type(object_id: &str, env_stack: &Vec<Environment>) -> String {
+    for environment in env_stack.iter().rev() {
+        match environment {
+            Environment::Class(class) => {
+                if let Some(attribute) = class.attributes.iter().find(
+                    |attribute| attribute.object_id == object_id
+                ) {
+                    return attribute.type_id.clone()
+                }
+            }
+
+            Environment::Method(method) => {
+                if let Some(formal) = method.formals.iter().find(
+                    |formal| formal.object_id == object_id
+                ) {
+                    return formal.type_id.clone()
+                }
+            }
+
+            Environment::Expr(expr) => {
+                match expr {
+                    Expr::Let { list, .. } => {
+                        if let Some(attribute) = list.iter().find(
+                            |attribute| attribute.object_id == object_id
+                        ) {
+                            return attribute.type_id.clone()
+                        }
+                    }
+
+                    Expr::Case { list, .. } => {
+                        if let Some(branch) = list.iter().find(
+                            |branch| branch.object_id == object_id
+                        ) {
+                            return branch.type_id.clone()
+                        }
+                    }
+
+                    _ => ()
+                }
+            }
+        }
+    }
+
+    return String::new()
+}
+
+fn method_type(class_type_id: &str, object_id: &str, classes: &[Class]) -> String {
+    let env_stack = class_and_parents(class_type_id, classes);
+    
+    for environment in env_stack.iter().rev() {
+        match environment {
+            Environment::Class(class) => {
+                if let Some(method) = class.methods.iter().find(
+                    |method| method.object_id == object_id
+                ) {
+                    return method.type_id.clone()
+                }
+            }
+
+            _ => ()
+        }
+    }
+
+    return String::new()
+}
+
+impl Expr {
+    fn semantic(&mut self, env_stack: &mut Vec<Environment>, classes: &[Class]) -> bool {
+        match self {
+            Expr::Identifier { type_id, object_id } => {
+                if type_id.is_empty() {
+                    *type_id = attribute_type(object_id, env_stack);
+
+                    if type_id.is_empty() {
+                        erro_semantico(self, "atributo não definido");
+                        return false
+                    }
+                }
+            }
+
+            Expr::Assigment { type_id, object_id, expr } => {
+                let attrib_type_id = attribute_type(object_id, env_stack);
+                let nearest;
+
+                if attrib_type_id.is_empty() {
+                    erro_semantico(self, "atributo não definido");
+                    return false
+                }
+
+                if !expr.semantic(env_stack, classes) {
+                    return false
+                }
+
+                if type_id.is_empty() {
+                    *type_id = expr.self_type_id()
+                }
+
+                nearest = nearest_parent(&attrib_type_id, type_id, env_stack, classes);
+
+                if nearest != attrib_type_id {
+                    erro_semantico(self,
+                        "o tipo estático da expressão não conforma ao tipo declarado do atributo"
+                    );
+
+                    return false
+                }
+            }
+
+            Expr::Dispatch {
+                type_id, expr, from_type_id,
+                object_id, params
+            } => {
+                if !expr.semantic(env_stack, classes) {
+                    return false
+                }
+
+                if from_type_id.is_empty() {
+                    *from_type_id = expr.self_type_id().clone()
+                }
+
+                *type_id = method_type(
+                    fill_self_type(from_type_id, env_stack), object_id, classes
+                );
+
+                if type_id.is_empty() {
+                    erro_semantico(self, "método não definido");
+                    return false
+                }
+            }
+
+            _ => return true
+        }
+
+        return true
+    }
 }
 
 impl Formal {
@@ -47,14 +215,32 @@ impl Attribute {
         }
     }
 
-    pub fn semantic(&mut self, classes: &[Class]) -> bool {
+    pub fn semantic(&mut self, env_stack: &mut Vec<Environment>, classes: &[Class]) -> bool {
+        let nearest;
+
         if self.object_id == "self" {
             erro_semantico(self, "identificador inválido para atributos (\"self\")");
             return false
         }
 
-        if !class_exists(&self.type_id, classes) {
+        if self.type_id != "SELF_TYPE" && !class_exists(&self.type_id, classes) {
             erro_semantico(self, "tipo não definido");
+            return false
+        }
+
+        if !self.expr.semantic(env_stack, classes) {
+            return false
+        }
+
+        nearest = nearest_parent(
+            &self.type_id, &self.expr.self_type_id(), env_stack, classes
+        );
+
+        if nearest != self.type_id {
+            erro_semantico(self,
+                "o tipo estático da expressão não conforma ao tipo declarado do atributo"
+            );
+
             return false
         }
 
@@ -78,7 +264,7 @@ impl Method {
         return method_without_exprs;
     }
 
-    pub fn semantic(&mut self, classes: &[Class]) -> bool {
+    pub fn semantic(&mut self, env_stack: &mut Vec<Environment>, classes: &[Class]) -> bool {
         if self.object_id == "self" {
             erro_semantico(self, "identificador inválido para métodos (\"self\")");
             return false
@@ -93,7 +279,7 @@ impl Method {
             return false
         }
 
-        return true
+        return self.expr.semantic(env_stack, classes)
     }
 }
 
@@ -141,11 +327,17 @@ impl Class {
     }
 
     pub fn semantic(&mut self, classes: &[Class]) -> bool {
-        if !self.attributes.iter_mut().all(|attribute| attribute.semantic(classes)) {
+        let mut env_stack = class_and_parents(&self.type_id, classes);
+
+        if !self.attributes.iter_mut().all(
+            |attribute| attribute.semantic(&mut env_stack, classes)
+        ) {
             return false
         }
 
-        return self.methods.iter_mut().all(|method| method.semantic(classes))
+        return self.methods.iter_mut().all(
+            |method| method.semantic(&mut env_stack, classes)
+        )
     }
 }
 

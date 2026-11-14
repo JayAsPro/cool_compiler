@@ -3,6 +3,8 @@ use crate::lexical;
 
 fn token_value(token: &Token, string: &str) -> bool {
     if token.value.to_ascii_lowercase() != string {
+        eprintln!("{:#?}", token);
+
         eprintln!(
             "ERRO SINTÁTICO (linha {}): esperava \"{}\"; encontrou \"{}\".",
             token.line, string, token.value
@@ -16,6 +18,8 @@ fn token_value(token: &Token, string: &str) -> bool {
 
 fn token_type(token: &Token, tk_type: TokenType) -> bool {
     if token.tk_type != tk_type {
+        eprintln!("{:#?}", token);
+
         eprintln!(
             "ERRO SINTÁTICO (linha {}): encontrou \"{}\".",
             token.line, token.value
@@ -186,7 +190,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                 };
 
                 expr_node = Expr::Assigment {
-                    type_id: sub_expr.type_id(),
+                    type_id: sub_expr.self_type_id(),
                     object_id: obj_id,
                     expr: Box::new(sub_expr)
                 };
@@ -294,7 +298,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                     }
 
                     expr_node = Expr::Parenthesis {
-                        type_id: sub_expr.type_id(),
+                        type_id: sub_expr.self_type_id(),
                         expr: Box::new(sub_expr)
                     };
                     
@@ -313,7 +317,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
 
                     expr_node = Expr::Block {
                         type_id: match expr_list.last() {
-                            Some(expr) => expr.type_id(),
+                            Some(expr) => expr.self_type_id(),
                             None => String::new()
                         },
                         
@@ -408,7 +412,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                     };
 
                     expr_node = Expr::Let {
-                        type_id: sub_expr.type_id(),
+                        type_id: sub_expr.self_type_id(),
                         list: attribs,
                         expr: Box::new(sub_expr)
                     };
@@ -634,6 +638,17 @@ fn feature(state: &mut State) -> Result<Feature, Feature> {
                 Ok(expr) => { attribute.expr = expr }
                 Err(expr) => { attribute.expr = expr; return Err(Feature::Attribute(attribute)); }
             };
+        } else {
+            attribute.expr = Expr::Constant {
+                type_id: attribute.type_id.clone(),
+
+                value: match attribute.type_id.as_str() {
+                    "Int" => String::from("0"),
+                    "Bool" => String::from("false"),
+                    "String" => String::from("\"\""),
+                    _ => String::from("void")
+                }
+            }
         }
 
         return Ok(Feature::Attribute(attribute))
