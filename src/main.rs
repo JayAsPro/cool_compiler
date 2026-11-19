@@ -6,6 +6,7 @@ mod lexical;
 mod ast;
 mod semantic;
 mod syntax;
+mod generation;
 
 fn main() {
     let arguments: Vec<String> = env::args().collect();
@@ -23,7 +24,14 @@ fn main() {
     let mut state = common::State::new(&code);
 
     if syntax::program(&mut state) {
-        state.ast.semantic();
+        if state.ast.semantic() {
+            let output = generation::gen_program(&mut state.ast);
+            println!("{}", output);
+
+            if let Ok(_) = fs::write("output.wat", output) {
+                println!("Compilação concluída com sucesso!")
+            }
+        }
     }
     
     // syntax::token_loop(&code);

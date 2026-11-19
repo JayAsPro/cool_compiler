@@ -9,7 +9,7 @@ fn class_exists(type_id: &str, classes: &[Class]) -> bool {
     return classes.iter().any(|class| class.type_id == type_id)
 }
 
-fn class_and_parents<'a>(mut type_id: &'a str, classes: &'a [Class]) -> Vec<Environment<'a>> {
+pub fn class_and_parents<'a>(mut type_id: &'a str, classes: &'a [Class]) -> Vec<Environment<'a>> {
     let mut env_stack = Vec::new();
 
     while let Some(class) = classes.iter().find(|class| class.type_id == type_id) {
@@ -191,7 +191,7 @@ impl Expr {
                         return false
                     }
 
-                    if !params.iter_mut().any(
+                    if !params.iter_mut().all(
                         |parameter| parameter.semantic(env_stack, classes)
                     ) {
                         return false
@@ -241,6 +241,7 @@ impl Attribute {
         return Attribute {
             object_id: self.object_id.clone(),
             type_id: self.type_id.clone(),
+            offset: self.offset,
             expr: Expr::Nil
         }
     }
