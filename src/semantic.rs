@@ -104,7 +104,7 @@ fn attribute_type(object_id: &str, env_stack: &Vec<Environment>) -> String {
     return String::new()
 }
 
-fn method_type(class_type_id: &str, object_id: &str, classes: &[Class]) -> String {
+fn find_method<'a>(class_type_id: &'a str, object_id: &str, classes: &'a[Class]) -> Option<&'a Method> {
     let env_stack = class_and_parents(class_type_id, classes);
     
     for environment in env_stack.iter().rev() {
@@ -113,7 +113,7 @@ fn method_type(class_type_id: &str, object_id: &str, classes: &[Class]) -> Strin
                 if let Some(method) = class.methods.iter().find(
                     |method| method.object_id == object_id
                 ) {
-                    return method.type_id.clone()
+                    return Some(method)
                 }
             }
 
@@ -121,7 +121,7 @@ fn method_type(class_type_id: &str, object_id: &str, classes: &[Class]) -> Strin
         }
     }
 
-    return String::new()
+    return None
 }
 
 impl Expr {
@@ -175,15 +175,45 @@ impl Expr {
                 }
 
                 if from_type_id.is_empty() {
-                    *from_type_id = expr.self_type_id().clone()
+                    *from_type_id = expr.self_type_id()
                 }
 
-                *type_id = method_type(
+                if let Some(method) = find_method(
                     fill_self_type(from_type_id, env_stack), object_id, classes
-                );
+                ) {
+                    *type_id = method.type_id.clone();
 
-                if type_id.is_empty() {
-                    erro_semantico(self, "método não definido");
+                    if params.len() != method.formals.len() {
+                        erro_semantico(self,
+                            "número errado de parâmetros em chamada de método"
+                        );
+
+                        return false
+                    }
+
+                    if !params.iter_mut().any(
+                        |parameter| parameter.semantic(env_stack, classes)
+                    ) {
+                        return false
+                    }
+
+                    for (parameter, formal) in params.iter().zip(&method.formals) {
+                        if nearest_parent(
+                            &parameter.self_type_id(),
+                            &formal.type_id, env_stack, classes
+                        ) != formal.type_id {
+                            erro_semantico(parameter,
+                                "tipo da expressão não conforma ao tipo do parâmetro do método"
+                            );
+
+                            return false
+                        }
+                    }
+                } else {
+                    erro_semantico(self,
+                        "método não definido nesta classe ou nas suas antecessoras"
+                    );
+
                     return false
                 }
             }
