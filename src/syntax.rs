@@ -1,317 +1,10 @@
 use crate::common::*;
 use crate::lexical;
 
-#[derive(Debug)]
-struct Attribute {
-    object_id: String,
-    type_id: String,
-    expr: Expr
-}
-
-#[derive(Debug)]
-struct Method {
-    object_id: String,
-    type_id: String,
-    formals: Vec<Formal>,
-    expr: Expr
-}
-
-#[derive(Debug)]
-struct CaseOfBranch {
-    object_id: String,
-    type_id: String,
-    expr: Expr
-}
-
-#[derive(Debug)]
-enum Expr {
-    Constant {
-        type_id: String,
-        value: String
-    },
-
-    Identifier {
-        type_id: String,
-        object_id: String
-    },
-
-    Assigment {
-        type_id: String,
-        object_id: String,
-        expr: Box<Expr>
-    },
-
-    Dispatch {
-        type_id: String,
-        expr: Box<Expr>,
-        from_type_id: String,
-        object_id: String,
-        params: Vec<Expr>
-    },
-
-    Conditional {
-        type_id: String,
-        expr_if: Box<Expr>,
-        expr_then: Box<Expr>,
-        expr_else: Box<Expr>
-    },
-
-    Loop {
-        type_id: String,
-        expr_while: Box<Expr>,
-        expr_loop: Box<Expr>
-    },
-    
-    Block {
-        type_id: String,
-        list: Vec<Expr>
-    },
-
-    Let {
-        type_id: String,
-        list: Vec<Attribute>,
-        expr: Box<Expr>
-    },
-
-    Case {
-        type_id: String,
-        case: Box<Expr>,
-        list: Vec<CaseOfBranch>
-    },
-
-    New {
-        type_id: String
-    },
-
-    Isvoid {
-        type_id: String,
-        expr: Box<Expr>
-    },
-
-    BinaryOperator {
-        type_id: String,
-        expr1: Box<Expr>,
-        op: String,
-        expr2: Box<Expr>
-    },
-
-    UnaryOperator {
-        type_id: String,
-        op: String,
-        expr: Box<Expr>
-    },
-
-    Parenthesis {
-        type_id: String,
-        expr: Box<Expr>
-    },
-
-    List {
-        type_id: String,
-        list: Vec<Expr>
-    },
-
-    Nil
-}
-
-impl Expr {
-    fn type_id(&self) -> String {
-        return match self {
-            Expr::Constant { type_id, ..} => type_id,
-            Expr::Identifier { type_id, ..} => type_id,
-            Expr::Assigment { type_id, ..} => type_id,
-            Expr::Dispatch { type_id, ..} => type_id,
-            Expr::Conditional { type_id, ..} => type_id,
-            Expr::Loop { type_id, ..} => type_id,
-            Expr::Block { type_id, ..} => type_id,
-            Expr::Let { type_id, ..} => type_id,
-            Expr::Case { type_id, ..} => type_id,
-            Expr::New { type_id, ..} => type_id,
-            Expr::Isvoid { type_id, ..} => type_id,
-            Expr::BinaryOperator { type_id, ..} => type_id,
-            Expr::UnaryOperator { type_id, ..} => type_id,
-            Expr::Parenthesis { type_id, ..} => type_id,
-            Expr::List { type_id, ..} => type_id,
-            Expr::Nil => ""
-        }.to_string()
-    }
-}
-
-#[derive(Debug)]
-struct Formal {
-    object_id: String,
-    type_id: String
-}
-
-#[derive(Debug)]
-enum Feature {
-    Attribute(Attribute),
-    Method(Method)
-}
-
-#[derive(Debug)]
-struct Class {
-    type_id: String,
-    inherits: String,
-    attributes: Vec<Attribute>,
-    methods: Vec<Method>
-}
-
-#[derive(Debug)]
-struct Program {
-    classes: Vec<Class>
-}
-
-impl Default for Program {
-    fn default() -> Self {
-        Program {
-            classes: vec![
-                Class {
-                    type_id: String::from("Object"),
-                    inherits: String::new(),
-                    attributes: Vec::new(),
-
-                    methods: vec![
-                        Method {
-                            object_id: String::from("abort"),
-                            type_id: String::from("Object"),
-                            formals: Vec::new(),
-                            expr: Expr::Nil
-                        },
-
-                        Method {
-                            object_id: String::from("type_name"),
-                            type_id: String::from("String"),
-                            formals: Vec::new(),
-                            expr: Expr::Nil
-                        },
-
-                        Method {
-                            object_id: String::from("copy"),
-                            type_id: String::from("SELF_TYPE"),
-                            formals: Vec::new(),
-                            expr: Expr::Nil
-                        }
-                    ]
-                },
-
-                Class {
-                    type_id: String::from("Int"),
-                    inherits: String::from("Object"),
-                    attributes: Vec::new(),
-                    methods: Vec::new()
-                },
-
-                Class {
-                    type_id: String::from("Bool"),
-                    inherits: String::from("Object"),
-                    attributes: Vec::new(),
-                    methods: Vec::new()
-                },
-
-                Class {
-                    type_id: String::from("String"),
-                    inherits: String::from("Object"),
-                    attributes: Vec::new(),
-                    methods: vec![
-                        Method {
-                            object_id: String::from("lenght"),
-                            type_id: String::from("Int"),
-                            formals: Vec::new(),
-                            expr: Expr::Nil
-                        },
-
-                        Method {
-                            object_id: String::from("concat"),
-                            type_id: String::from("String"),
-                            
-                            formals: vec![
-                                Formal {
-                                    object_id: String::from("s"),
-                                    type_id: String::from("String")
-                                }
-                            ],
-
-                            expr: Expr::Nil
-                        },
-
-                        Method {
-                            object_id: String::from("substr"),
-                            type_id: String::from("SELF_TYPE"),
-
-                            formals: vec![
-                                Formal {
-                                    object_id: String::from("i"),
-                                    type_id: String::from("Int")
-                                },
-
-                                Formal {
-                                    object_id: String::from("l"),
-                                    type_id: String::from("Int")
-                                }
-                            ],
-
-                            expr: Expr::Nil
-                        }
-                    ]
-                },
-
-                Class {
-                    type_id: String::from("IO"),
-                    inherits: String::from("Object"),
-                    attributes: Vec::new(),
-
-                    methods: vec![
-                        Method {
-                            object_id: String::from("out_string"),
-                            type_id: String::from("SELF_TYPE"),
-
-                            formals: vec![
-                                Formal {
-                                    object_id: String::from("x"),
-                                    type_id: String::from("String")
-                                }
-                            ],
-
-                            expr: Expr::Nil
-                        },
-
-                        Method {
-                            object_id: String::from("out_int"),
-                            type_id: String::from("SELF_TYPE"),
-
-                            formals: vec![
-                                Formal {
-                                    object_id: String::from("x"),
-                                    type_id: String::from("Int")
-                                }
-                            ],
-
-                            expr: Expr::Nil
-                        },
-
-                        Method {
-                            object_id: String::from("in_string"),
-                            type_id: String::from("String"),
-                            formals: Vec::new(),
-                            expr: Expr::Nil
-                        },
-
-                        Method {
-                            object_id: String::from("in_int"),
-                            type_id: String::from("Int"),
-                            formals: Vec::new(),
-                            expr: Expr::Nil
-                        }
-                    ]
-                }
-            ]
-        }
-    }
-}
-
 fn token_value(token: &Token, string: &str) -> bool {
     if token.value.to_ascii_lowercase() != string {
+        eprintln!("{:#?}", token);
+
         eprintln!(
             "ERRO SINTÁTICO (linha {}): esperava \"{}\"; encontrou \"{}\".",
             token.line, string, token.value
@@ -325,6 +18,8 @@ fn token_value(token: &Token, string: &str) -> bool {
 
 fn token_type(token: &Token, tk_type: TokenType) -> bool {
     if token.tk_type != tk_type {
+        eprintln!("{:#?}", token);
+
         eprintln!(
             "ERRO SINTÁTICO (linha {}): encontrou \"{}\".",
             token.line, token.value
@@ -336,41 +31,19 @@ fn token_type(token: &Token, tk_type: TokenType) -> bool {
     return true;
 }
 
-fn next_token_value(state: &mut State<Program>, string: &str) -> bool {
+fn next_token_value(state: &mut State, string: &str) -> bool {
     lexical::next_token(state);
     return token_value(&state.last_token, string);
 }
 
-fn next_token_type(state: &mut State<Program>, tk_type: TokenType) -> bool {
+fn next_token_type(state: &mut State, tk_type: TokenType) -> bool {
     lexical::next_token(state);
     return token_type(&state.last_token, tk_type);
 }
 
-fn type_and_parents<'a>(mut type_id: &'a str, classes: &'a Vec<Class>) -> Vec<&'a str> {
-    let mut type_ids: Vec<&'a str> = Vec::new();
-
-    for class in classes.iter().rev() {
-        if class.type_id == type_id {
-            type_ids.push(&class.type_id);
-            type_id = &class.inherits;
-        }
-    }
-
-    return type_ids;
-}
-
-fn erro_semantico<T: std::fmt::Debug>(node: &T, token: &Token, message: &str) {
-    eprintln!("{:#?}", node);
-    eprintln!("ERRO SEMÂNTICO (linha {}): {}.", token.line, message);
-}
-
-fn type_exists<'a>(mut type_id: &'a str, classes: &'a Vec<Class>) -> bool {
-    return !type_and_parents(type_id, &classes).is_empty()
-}
-
 fn list_semicolon<T>(
-    state: &mut State<Program>,
-    variable: fn(&mut State<Program>) -> Result<T, T>,
+    state: &mut State,
+    variable: fn(&mut State) -> Result<T, T>,
     terminator: &str
 ) -> Result<Vec<T>, Vec<T>> {
     let mut list: Vec<T> = Vec::new();
@@ -388,8 +61,8 @@ fn list_semicolon<T>(
 }
 
 fn list_comma<T>(
-    state: &mut State<Program>,
-    variable: fn(&mut State<Program>) -> Result<T, T>,
+    state: &mut State,
+    variable: fn(&mut State) -> Result<T, T>,
     terminator: &str
 ) -> Result<Vec<T>, Vec<T>> {
     let mut list: Vec<T> = Vec::new();
@@ -416,7 +89,7 @@ fn list_comma<T>(
     return Ok(list)
 }
 
-fn object_definition(state: &mut State<Program>) -> Result<Attribute, Attribute> {
+fn object_definition(state: &mut State) -> Result<Attribute, Attribute> {
     let mut attribute = Attribute {
         object_id: String::new(),
         type_id: String::new(),
@@ -444,7 +117,7 @@ fn object_definition(state: &mut State<Program>) -> Result<Attribute, Attribute>
     return Ok(attribute);
 }
 
-fn case_of(state: &mut State<Program>) -> Result<CaseOfBranch, CaseOfBranch> {
+fn case_of(state: &mut State) -> Result<CaseOfBranch, CaseOfBranch> {
     let mut branch = CaseOfBranch {
         object_id: String::new(),
         type_id: String::new(),
@@ -473,7 +146,7 @@ fn case_of(state: &mut State<Program>) -> Result<CaseOfBranch, CaseOfBranch> {
     return Ok(branch);
 }
 
-fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
+fn expr(state: &mut State) -> Result<Expr, Expr> {
     let mut expr_node;
     
     match state.last_token.tk_type {
@@ -513,11 +186,11 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                 match expr(state) {
                     Ok(expr) => { sub_expr = expr }
-                    Err(expr) => { return Err(Expr::Nil); }
+                    Err(_) => { return Err(Expr::Nil); }
                 };
 
                 expr_node = Expr::Assigment {
-                    type_id: sub_expr.type_id(),
+                    type_id: sub_expr.self_type_id(),
                     object_id: obj_id,
                     expr: Box::new(sub_expr)
                 };
@@ -527,7 +200,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                 match list_comma(state, expr, ")") {
                     Ok(list) => { params = list  }
-                    Err(list) => { return Err(Expr::Nil) }
+                    Err(_) => { return Err(Expr::Nil) }
                 }
 
                 expr_node = Expr::Dispatch {
@@ -538,7 +211,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
                         object_id: String::from("self")
                     }),
                     
-                    from_type_id: String::from("SELF_TYPE"),
+                    from_type_id: String::new(),
                     object_id: obj_id,
                     params: params
                 };
@@ -546,7 +219,11 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
                 lexical::next_token(state);
             } else {
                 expr_node = Expr::Identifier {
-                    type_id: String::from(""),
+                    type_id: match obj_id.as_str() {
+                        "self" => String::from("SELF_TYPE"),
+                        &_ => String::new()
+                    },
+
                     object_id: obj_id 
                 }
             }
@@ -570,7 +247,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { sub_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::Isvoid {
@@ -585,7 +262,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { sub_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::UnaryOperator {
@@ -601,7 +278,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { sub_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::UnaryOperator {
@@ -617,11 +294,11 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { sub_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::Parenthesis {
-                        type_id: sub_expr.type_id(),
+                        type_id: sub_expr.self_type_id(),
                         expr: Box::new(sub_expr)
                     };
                     
@@ -635,12 +312,12 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match list_semicolon(state, expr, "}") {
                         Ok(list) => { expr_list = list; }
-                        Err(list) => { return Err(Expr::Nil) }
+                        Err(_) => { return Err(Expr::Nil) }
                     }
 
-                    expr_node = Expr::List {
+                    expr_node = Expr::Block {
                         type_id: match expr_list.last() {
-                            Some(expr) => expr.type_id(),
+                            Some(expr) => expr.self_type_id(),
                             None => String::new()
                         },
                         
@@ -659,7 +336,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
                     
                     match expr(state) {
                         Ok(expr) => { if_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
                     
                     if !token_value(&state.last_token, "then") { return Err(Expr::Nil); }
@@ -667,7 +344,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { then_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
                     
                     if !token_value(&state.last_token, "else") { return Err(Expr::Nil); }
@@ -675,7 +352,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { else_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::Conditional {
@@ -697,7 +374,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
                     
                     match expr(state) {
                         Ok(expr) => { while_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
                     
                     if !token_value(&state.last_token, "loop") { return Err(Expr::Nil); }
@@ -705,7 +382,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { loop_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     }
 
                     expr_node = Expr::Loop {
@@ -724,18 +401,18 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match list_comma(state, object_definition, "in") {
                         Ok(list) => { attribs = list}
-                        Err(list) => { return Err(Expr::Nil)}
+                        Err(_) => { return Err(Expr::Nil)}
                     }
 
                     lexical::next_token(state);
 
                     match expr(state) {
                         Ok(expr) => { sub_expr = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     };
 
                     expr_node = Expr::Let {
-                        type_id: sub_expr.type_id(),
+                        type_id: sub_expr.self_type_id(),
                         list: attribs,
                         expr: Box::new(sub_expr)
                     };
@@ -749,7 +426,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match expr(state) {
                         Ok(expr) => { case = expr }
-                        Err(expr) => { return Err(Expr::Nil); }
+                        Err(_) => { return Err(Expr::Nil); }
                     };
 
                     if !token_value(&state.last_token, "of") { return Err(Expr::Nil); }
@@ -758,14 +435,14 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                     match list_semicolon(state, case_of, "esac") {
                         Ok(list) => { branches = list}
-                        Err(list) => { return Err(Expr::Nil)}
+                        Err(_) => { return Err(Expr::Nil)}
                     }
 
                     lexical::next_token(state);
 
                     expr_node = Expr::Case {
                         type_id: String::from(""),
-                        case: Box::new(Expr::Nil),
+                        case: Box::new(case),
                         list: branches
                     };
                 }
@@ -801,7 +478,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                 match list_comma(state, expr, ")") {
                     Ok(list) => { params = list  }
-                    Err(list) => { return Err(Expr::Nil) }
+                    Err(_) => { return Err(Expr::Nil) }
                 }
 
                 lexical::next_token(state);
@@ -817,7 +494,6 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
             "." => {
                 let object_id;
-                let from_type_id = expr_node.type_id();
                 let params;
                 
                 if !next_token_type(state, TokenType::ObjectID) { return Err(Expr::Nil); }
@@ -827,7 +503,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
 
                 match list_comma(state, expr, ")") {
                     Ok(list) => { params = list  }
-                    Err(list) => { return Err(Expr::Nil) }
+                    Err(_) => { return Err(Expr::Nil) }
                 }
                 
                 lexical::next_token(state);
@@ -835,7 +511,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
                 expr_node = Expr::Dispatch {
                     type_id: String::from(""),
                     expr: Box::new(expr_node),
-                    from_type_id: from_type_id,
+                    from_type_id: String::new(),
                     object_id: object_id,
                     params: params
                 };
@@ -849,7 +525,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
                 
                 match expr(state) {
                     Ok(expr) => { expr2 = expr }
-                    Err(expr) => { return Err(Expr::Nil); }
+                    Err(_) => { return Err(Expr::Nil); }
                 };
 
                 expr_node = Expr::BinaryOperator {
@@ -869,7 +545,7 @@ fn expr(state: &mut State<Program>) -> Result<Expr, Expr> {
     }
 }
 
-fn formal(state: &mut State<Program>) -> Result<Formal, Formal> {
+fn formal(state: &mut State) -> Result<Formal, Formal> {
     let mut formal = Formal {
         object_id: String::new(),
         type_id: String::new()
@@ -882,16 +558,12 @@ fn formal(state: &mut State<Program>) -> Result<Formal, Formal> {
     if !next_token_type(state, TokenType::TypeID) { return Err(formal) }
     formal.type_id = state.last_token.value.clone();
 
-    if !type_exists(&formal.type_id, &state.tree.classes) {
-        erro_semantico(&formal, &state.last_token, "tipo não definido");
-        return Err(formal);
-    }
-
     lexical::next_token(state);
-    return Ok(formal);
+    
+    return Ok(formal)
 }
 
-fn feature(state: &mut State<Program>) -> Result<Feature, Feature> {
+fn feature(state: &mut State) -> Result<Feature, Feature> {
     let mut attribute = Attribute {
         object_id: String::new(),
         type_id: String::new(),
@@ -928,11 +600,6 @@ fn feature(state: &mut State<Program>) -> Result<Feature, Feature> {
 
         method.type_id = state.last_token.value.clone();
 
-        if !type_exists(&method.type_id, &state.tree.classes) {
-            erro_semantico(&method, &state.last_token, "tipo não definido");
-            return Err(Feature::Method(method));
-        }
-
         if !next_token_value(state, "{") {
             return Err(Feature::Method(method))
         };
@@ -950,7 +617,7 @@ fn feature(state: &mut State<Program>) -> Result<Feature, Feature> {
         
         lexical::next_token(state);
 
-        return Ok(Feature::Method(method));
+        return Ok(Feature::Method(method))
     }
     // Atributo.
     else if state.last_token.value == ":" {
@@ -962,11 +629,6 @@ fn feature(state: &mut State<Program>) -> Result<Feature, Feature> {
 
         attribute.type_id = state.last_token.value.clone();
 
-        if !type_exists(&attribute.type_id, &state.tree.classes) {
-            erro_semantico(&attribute, &state.last_token, "tipo não definido");
-            return Err(Feature::Attribute(attribute));
-        }
-
         lexical::next_token(state);
 
         if state.last_token.value == "<-" {
@@ -976,9 +638,20 @@ fn feature(state: &mut State<Program>) -> Result<Feature, Feature> {
                 Ok(expr) => { attribute.expr = expr }
                 Err(expr) => { attribute.expr = expr; return Err(Feature::Attribute(attribute)); }
             };
+        } else {
+            attribute.expr = Expr::Constant {
+                type_id: attribute.type_id.clone(),
+
+                value: match attribute.type_id.as_str() {
+                    "Int" => String::from("0"),
+                    "Bool" => String::from("false"),
+                    "String" => String::from("\"\""),
+                    _ => String::from("void")
+                }
+            }
         }
 
-        return Ok(Feature::Attribute(attribute));
+        return Ok(Feature::Attribute(attribute))
     }
     else {
         eprintln!(
@@ -990,7 +663,7 @@ fn feature(state: &mut State<Program>) -> Result<Feature, Feature> {
     }
 }
 
-fn class(state: &mut State<Program>) -> Result<Class, Class> {
+fn class(state: &mut State) -> Result<Class, Class> {
     let mut class = Class {
         type_id: String::new(),
         inherits: String::from("Object"),
@@ -1002,30 +675,11 @@ fn class(state: &mut State<Program>) -> Result<Class, Class> {
     if !next_token_type(state, TokenType::TypeID) { return Err(class); }
     class.type_id.push_str(&state.last_token.value);
 
-    if type_exists(&class.type_id, &state.tree.classes) {
-        erro_semantico(&class, &state.last_token, "redefinição de tipo");
-        return Err(class);
-    }
-
     lexical::next_token(state);
+    
     if state.last_token.value == "inherits" {
         if !next_token_type(state, TokenType::TypeID) { return Err(class); }
         class.inherits = state.last_token.value.clone();
-
-        match class.inherits.as_str() {
-            "Int" | "Bool" | "String" => {
-                erro_semantico(&class, &state.last_token, "este tipo não pode ser herdado");
-                return Err(class);
-            }
-
-            &_ => ()
-        }
-        
-        if !type_exists(&class.inherits, &state.tree.classes) {
-            erro_semantico(&class, &state.last_token, "tipo herdado não definido");
-            return Err(class);
-        }
-        
         lexical::next_token(state);
     }
 
@@ -1056,33 +710,31 @@ fn class(state: &mut State<Program>) -> Result<Class, Class> {
         if !token_value(&state.last_token, "}") { return Err(class); }
     }
 
-    return Ok(class);
+    return Ok(class)
 }
 
-pub fn program(code: &str) -> bool {
-    let mut state = State::<Program>::new(code);
-
-    lexical::next_token(&mut state);
+pub fn program(state: &mut State) -> bool {
+    lexical::next_token(state);
 
     loop {
-        match class(&mut state) {
-            Ok(class) => { state.tree.classes.push(class) }
+        match class(state) {
+            Ok(class) => { state.ast.classes.push(class) }
 
             Err(class) => {
-                state.tree.classes.push(class);
-                // println!("{:#?}", state.tree);
+                state.ast.classes.push(class);
+                // println!("{:#?}", state.ast);
                 return false;
             }
         }
 
-        if !next_token_value(&mut state, ";") {
-            // println!("{:#?}", state.tree);
+        if !next_token_value(state, ";") {
+            // println!("{:#?}", state.ast);
             return false;
         }
         
-        lexical::next_token(&mut state);
-        if state.last_token.tk_type == TokenType::Eof {
-            println!("{:#?}", state.tree);
+        lexical::next_token(state);
+        if state.last_token.tk_type == TokenType::Eof {  
+            // println!("{:#?}", state.ast);
             return true;
         }
     }
@@ -1090,7 +742,7 @@ pub fn program(code: &str) -> bool {
 
 /* 
 pub fn token_loop(code: &str) {
-    let mut state = State<Program>::new(code);
+    let mut state = State::new(code);
 
     while state.last_token.tk_type != TokenType::Eof {
         lexical::next_token(&mut state);

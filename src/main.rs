@@ -3,6 +3,8 @@ use std::fs;
 
 mod common;
 mod lexical;
+mod ast;
+mod semantic;
 mod syntax;
 
 fn main() {
@@ -18,6 +20,12 @@ fn main() {
         return;
     };
     
-    syntax::program(&code);
+    let mut state = common::State::new(&code);
+
+    if syntax::program(&mut state) {
+        state.ast.semantic();
+    }
+    
     // syntax::token_loop(&code);
+    // println!("{:#?}", state.ast)
 }
