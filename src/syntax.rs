@@ -2,7 +2,7 @@ use crate::common::*;
 use crate::lexical;
 
 fn token_value(token: &Token, string: &str) -> bool {
-    if token.value.to_ascii_lowercase() != string {
+    if token.value != string {
         eprintln!("{:#?}", token);
 
         eprintln!(

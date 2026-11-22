@@ -5,6 +5,10 @@ fn erro_semantico<T: std::fmt::Debug>(node: &T, message: &str) {
     eprintln!("ERRO SEMÂNTICO (linha ): {}.", message);
 }
 
+fn find_class<'a>(type_id: &str, classes: &'a [Class]) -> Option<&'a Class> {
+    return classes.iter().find(|class| class.type_id == type_id)
+}
+
 fn class_exists(type_id: &str, classes: &[Class]) -> bool {
     return classes.iter().any(|class| class.type_id == type_id)
 }
@@ -104,23 +108,35 @@ fn attribute_type(object_id: &str, env_stack: &Vec<Environment>) -> String {
     return String::new()
 }
 
-fn find_method<'a>(class_type_id: &'a str, object_id: &str, classes: &'a[Class]) -> Option<&'a Method> {
-    let env_stack = class_and_parents(class_type_id, classes);
+fn find_method<'a>(
+    class_type_id: &'a str, object_id: &str, classes: &'a[Class], search_stack: bool
+) -> Option<(&'a Class, &'a Method)> {
+    if search_stack {
+        let env_stack = class_and_parents(class_type_id, classes);
     
-    for environment in env_stack.iter().rev() {
-        match environment {
-            Environment::Class(class) => {
-                if let Some(method) = class.methods.iter().find(
-                    |method| method.object_id == object_id
-                ) {
-                    return Some(method)
+        for environment in env_stack.iter().rev() {
+            match environment {
+                Environment::Class(class) => {
+                    if let Some(method) = class.methods.iter().find(
+                        |method| method.object_id == object_id
+                    ) {
+                        return Some((class, method))
+                    }
                 }
-            }
 
-            _ => ()
+                _ => ()
+            }
+        }
+    } else {
+        if let Some(class) = find_class(class_type_id, classes) {
+            if let Some(method) = class.methods.iter().find(
+                |method| method.object_id == object_id
+            ) {
+                return Some((class, method))
+            }
         }
     }
-
+    
     return None
 }
 
@@ -170,37 +186,44 @@ impl Expr {
                 type_id, expr, from_type_id,
                 object_id, params
             } => {
-                if !expr.semantic(env_stack, classes) {
-                    return false
-                }
+                let find_method_res;
+                let expr_type_id;
+
+                if !expr.semantic(env_stack, classes) { return false }
+
+                expr_type_id = expr.self_type_id();
 
                 if from_type_id.is_empty() {
-                    *from_type_id = expr.self_type_id()
+                    find_method_res = find_method(
+                        fill_self_type(&expr_type_id, env_stack),
+                        object_id, classes, true
+                    );
+                    
+                    if let Some((class, ..)) = find_method_res {
+                        *from_type_id = class.type_id.clone()
+                    }
+                } else {
+                    find_method_res = find_method(
+                        fill_self_type(from_type_id, env_stack),
+                        object_id, classes, false
+                    );
                 }
 
-                if let Some(method) = find_method(
-                    fill_self_type(from_type_id, env_stack), object_id, classes
-                ) {
+                if let Some((.., method)) = find_method_res {
                     *type_id = method.type_id.clone();
 
                     if params.len() != method.formals.len() {
-                        erro_semantico(self,
-                            "número errado de parâmetros em chamada de método"
-                        );
-
+                        erro_semantico(self, "número errado de parâmetros em chamada de método");
                         return false
                     }
 
-                    if !params.iter_mut().all(
-                        |parameter| parameter.semantic(env_stack, classes)
-                    ) {
+                    if !params.iter_mut().all(|parameter| parameter.semantic(env_stack, classes)) {
                         return false
                     }
 
                     for (parameter, formal) in params.iter().zip(&method.formals) {
                         if nearest_parent(
-                            &parameter.self_type_id(),
-                            &formal.type_id, env_stack, classes
+                            &parameter.self_type_id(), &formal.type_id, env_stack, classes
                         ) != formal.type_id {
                             erro_semantico(parameter,
                                 "tipo da expressão não conforma ao tipo do parâmetro do método"
@@ -216,6 +239,53 @@ impl Expr {
 
                     return false
                 }
+            }
+
+            Expr::Conditional {
+                type_id, expr_if,
+                expr_then, expr_else
+            } => {
+                if !expr_if.semantic(env_stack, classes)
+                || !expr_then.semantic(env_stack, classes)
+                || !expr_else.semantic(env_stack, classes) {
+                    return false
+                }
+
+                if expr_if.self_type_id() != "Bool" {
+                    erro_semantico(expr_if, "tipo da expressão \"if\" diferente de Bool");
+                    return false
+                }
+
+                *type_id = nearest_parent(
+                    &expr_then.self_type_id(), &expr_else.self_type_id(),
+                    env_stack, classes
+                );
+            }
+
+            Expr::Loop { expr_while, expr_loop, .. } => {
+                if !expr_while.semantic(env_stack, classes)
+                || !expr_loop.semantic(env_stack, classes) {
+                    return false
+                }
+
+                if expr_while.self_type_id() != "Bool" {
+                    erro_semantico(expr_while, "tipo da expressão \"while\" diferente de Bool");
+                    return false
+                }
+            }
+
+            Expr::Block { type_id, list } => {
+                if !list.iter_mut().all(|expr| expr.semantic(env_stack, classes)) {
+                    return false
+                }
+
+                if let Some(expr) = list.last() {
+                    *type_id = expr.self_type_id()
+                }
+            }
+
+            Expr::Let { type_id, list, expr } => {
+                
             }
 
             _ => return true
