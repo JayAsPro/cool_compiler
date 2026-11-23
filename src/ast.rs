@@ -2,7 +2,6 @@
 pub struct Attribute {
     pub object_id: String,
     pub type_id: String,
-    pub offset: i32,
     pub expr: Expr
 }
 

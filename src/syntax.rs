@@ -93,7 +93,6 @@ fn object_definition(state: &mut State) -> Result<Attribute, Attribute> {
     let mut attribute = Attribute {
         object_id: String::new(),
         type_id: String::new(),
-        offset: 0,
         expr: Expr::Nil
     };
 
@@ -567,7 +566,6 @@ fn feature(state: &mut State) -> Result<Feature, Feature> {
     let mut attribute = Attribute {
         object_id: String::new(),
         type_id: String::new(),
-        offset: 0,
         expr: Expr::Nil
     };
 

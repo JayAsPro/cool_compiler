@@ -1,12 +1,13 @@
 use std::env;
 use std::fs;
 
+mod ast;
 mod common;
 mod lexical;
-mod ast;
-mod semantic;
 mod syntax;
+mod semantic;
 mod generation;
+
 
 fn main() {
     let arguments: Vec<String> = env::args().collect();
@@ -28,7 +29,7 @@ fn main() {
             let output = generation::gen_program(&mut state.ast);
             println!("{}", output);
 
-            if let Ok(_) = fs::write("output.wat", output) {
+            if let Ok(_) = fs::write("output.bril", output) {
                 println!("Compilação concluída com sucesso!")
             }
         }

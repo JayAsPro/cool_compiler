@@ -1,5 +1,3 @@
-use std::env;
-
 use crate::common::*;
 
 fn erro_semantico<T: std::fmt::Debug>(node: &T, message: &str) {
@@ -440,7 +438,6 @@ impl Attribute {
         return Attribute {
             object_id: self.object_id.clone(),
             type_id: self.type_id.clone(),
-            offset: self.offset,
             expr: Expr::Nil
         }
     }
@@ -495,6 +492,8 @@ impl Method {
     }
 
     pub fn semantic(&mut self, env_stack: &mut Vec<Environment>, classes: &[Class]) -> bool {
+        let nearest;
+
         if self.object_id == "self" {
             erro_semantico(self, "identificador inválido para métodos (\"self\")");
             return false
@@ -509,7 +508,18 @@ impl Method {
             return false
         }
 
-        return self.expr.semantic(env_stack, classes)
+        if !self.expr.semantic(env_stack, classes) { return false }
+
+        nearest = nearest_parent(
+            &self.expr.self_type_id(), &self.type_id, env_stack, classes
+        );
+
+        if nearest != self.type_id {
+            erro_semantico(self, "tipo da expressão não conforma ao tipo de retorno do método");
+            return false
+        }
+
+        return true
     }
 }
 
