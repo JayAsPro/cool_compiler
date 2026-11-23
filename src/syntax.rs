@@ -106,6 +106,7 @@ fn object_definition(state: &mut State) -> Result<Attribute, Attribute> {
     attribute.type_id = state.last_token.value.clone();
 
     lexical::next_token(state);
+    
     if state.last_token.value == "<-" {
         lexical::next_token(state);
 
@@ -133,15 +134,13 @@ fn case_of(state: &mut State) -> Result<CaseOfBranch, CaseOfBranch> {
     if !next_token_type(state, TokenType::TypeID) { return Err(branch); }
     branch.type_id = state.last_token.value.clone();
 
-    lexical::next_token(state);
+    if !next_token_value(state, "=>") { return Err(branch); }
     
-    if state.last_token.value == "=>" {
-        lexical::next_token(state);
+    lexical::next_token(state);
 
-       match expr(state) {
-            Ok(expr) => { branch.expr = expr }
-            Err(expr) => { branch.expr = expr; return Err(branch) }
-        }
+    match expr(state) {
+        Ok(expr) => { branch.expr = expr }
+        Err(expr) => { branch.expr = expr; return Err(branch) }
     }
     
     return Ok(branch);

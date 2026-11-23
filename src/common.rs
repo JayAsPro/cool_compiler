@@ -4,7 +4,7 @@ pub use crate::ast::*;
 pub enum Environment<'a> {
     Class(&'a Class),
     Method(&'a Method),
-    Expr(&'a Expr)
+    Expr(Expr)
 }
 
 #[derive(Debug)]

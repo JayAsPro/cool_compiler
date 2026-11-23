@@ -1,3 +1,5 @@
+use std::env;
+
 use crate::common::*;
 
 fn erro_semantico<T: std::fmt::Debug>(node: &T, message: &str) {
@@ -138,6 +140,25 @@ fn find_method<'a>(
     }
     
     return None
+}
+
+impl CaseOfBranch {
+    fn without_exprs(&self) -> CaseOfBranch {
+        return CaseOfBranch {
+            object_id: self.object_id.clone(),
+            type_id: self.type_id.clone(),
+            expr: Expr::Nil
+        }
+    }
+
+    fn semantic(&mut self, env_stack: &mut Vec<Environment>, classes: &[Class]) -> bool {
+        if !class_exists(&self.type_id, classes) {
+            erro_semantico(self, "tipo não definido");
+            return false
+        }
+
+        return self.expr.semantic(env_stack, classes)
+    }
 }
 
 impl Expr {
@@ -285,7 +306,115 @@ impl Expr {
             }
 
             Expr::Let { type_id, list, expr } => {
-                
+                let mut let_list = Vec::new();
+
+                if !list.iter_mut().all(|attribute| attribute.semantic(env_stack, classes)) {
+                    return false
+                }
+
+                for attribute in list {
+                    let_list.push(attribute.without_exprs())
+                }
+
+                env_stack.push(Environment::Expr(Expr::Let {
+                    type_id: type_id.clone(),
+                    list: let_list,
+                    expr: Box::new(Expr::Nil)
+                }));
+
+                if !expr.semantic(env_stack, classes) { return false }
+                *type_id = expr.self_type_id();
+                env_stack.pop();
+            }
+
+            Expr::Case { type_id, case, list } => {
+                let mut nearest_type_id;
+
+                if !case.semantic(env_stack, classes) { return false }
+
+                if !list.iter_mut().all(|branch| branch.semantic(env_stack, classes)) {
+                    return false
+                }
+
+                nearest_type_id = String::from(fill_self_type(&list[0].expr.self_type_id(), env_stack));
+
+                for branch in list[1..].iter() {
+                    nearest_type_id = nearest_parent(
+                        &nearest_type_id, &branch.expr.self_type_id(), env_stack, classes
+                    )
+                }
+
+                *type_id = nearest_type_id;
+            }
+
+            Expr::New { type_id } => {
+                if !class_exists(type_id, classes) {
+                    erro_semantico(self, "tipo não definido");
+                    return false
+                }
+            }
+
+            Expr::Isvoid { expr, .. } => {
+                if !expr.semantic(env_stack, classes) {
+                    return false
+                }
+            }
+
+            Expr::BinaryOperator { expr1, expr2, .. } => {
+                if !expr1.semantic(env_stack, classes) || !expr2.semantic(env_stack, classes) {
+                    return false
+                }
+
+                if expr1.self_type_id() != "Int" {
+                    erro_semantico(expr1,
+                        "tipo do operando diferente de \"Int\" em expressão aritmética"
+                    );
+
+                    return false
+                }
+
+                if expr2.self_type_id() != "Int" {
+                    erro_semantico(expr2,
+                        "tipo do operando diferente de \"Int\" em expressão aritmética"
+                    );
+
+                    return false
+                }
+            }
+
+            Expr::UnaryOperator { type_id, op, expr } => {
+                if !expr.semantic(env_stack, classes) { return false }
+
+                match op.as_str() {
+                    "~" => {
+                        if expr.self_type_id() != "Int" {
+                            erro_semantico(self,
+                                "operador de complemento inteiro sobre expressão \
+                                que não possui tipo \"Int\""
+                            );
+
+                            return false
+                        }
+                    }
+
+                    "not" => {
+                        if expr.self_type_id() != "Bool" {
+                            erro_semantico(self,
+                                "operador de complemento booleano sobre expressão \
+                                que não possui tipo \"Bool\""
+                            );
+                            
+                            return false
+                        }
+                    }
+
+                    _ => ()
+                }
+            }
+
+            Expr::Parenthesis { type_id, expr } => {
+                if !expr.semantic(env_stack, classes) { return false }
+                *type_id = expr.self_type_id()
             }
 
             _ => return true
