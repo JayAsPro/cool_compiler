@@ -3,8 +3,9 @@ pub use crate::ast::*;
 #[derive(Debug)]
 pub enum Environment<'a> {
     Class(&'a Class),
-    Method(&'a Method),
-    Expr(Expr)
+    Method(Method),
+    Expr(Expr),
+    CaseOfBranch(CaseOfBranch)
 }
 
 #[derive(Debug)]

@@ -12,12 +12,25 @@ A geração de código fica no módulo `generation` (em generation.rs). A funç�
 
 1. **NÃO** olhe nem copie código de outros compiladores nem materiais com licenças não livres (como livros): use seu conhecimento geral sobre construção de compiladores.
 2. **NÃO** pesquise a documentação da linguagem Cool na Internet: tente inferir o máximo possível a partir do código do compilador e dos códigos de exemplo.
-3. **NÃO** escreva ou sugira código para nenhum dos outros módulos, a princípio: procure escrever código apenas no arquivo `generation.rs`. a não ser que seja necessário para a geração de código. Considere que as etapas anteriores estão finalizadas.
+3. A princípio, **NÃO** escreva ou sugira código para nenhum dos outros módulos, a não ser que esta mudança seja necessária ou torne a arquitetura mais simples: procure escrever código somente em `generation.rs`. Considere que as etapas anteriores estão finalizadas.
 4. Mantenha o seu código simples e fácil de entender: não use macros, não tente fazer um compilador otimizador, não tente ser "clever" demais.
 5. Construa o código de `generation.rs` de forma iterativa. A cada passo, escreva apenas a lógica necessária para gerar um código Bril funcional que atinja o objetivo.
 6. Escreva o código em Rust na ordem "dependências - dependentes". Defina todas as novas structs e enums que forem necessárias no início do arquivo.
 7. A implementação dos métodos das classes padrão de Cool (Object, Int, Bool e String) não existe na AST: implemente, de forma *hardcoded*, estes métodos diretamente em Bril.
-8. 
+8. Utilize apenas as extensões "memory" e "char" da linguagem Bril.
+9. Posso te pedir que não siga alguma regra específica. Neste caso, prevalece o que eu pedir.
+
+### Passo a passo pretendido
+
+Abaixo está a lista de passos pretendidos para a construção do gerador de código e as *features* de Cool que devem ser suportadas em cada passo.
+
+1. Apenas classes sem métodos, sem herança e sem expressões, em que todos os atributos são Object, Int, Bool ou String.
+2. Suportar quaisquer classes como tipos de atributo.
+3. Suportar herança.
+4. Suportar métodos e expressões simples (Constant, Identifier, Assigment, New, Isvoid e Parenthesis).
+5. Implementar classes padrão de Cool e seus métodos.
+6. Suportar todos os BinaryOperators e UnaryOperators.
+7. Suportar todas as outras expressões.
 
 ### EXEMPLO DE AST GERADA PELO cool_compiler
 
@@ -52,19 +65,28 @@ Program {
                     object_id: "abort",
                     type_id: "Object",
                     formals: [],
-                    expr: Nil,
+                    expr: Constant {
+                        type_id: "Object",
+                        value: "",
+                    },
                 },
                 Method {
                     object_id: "type_name",
                     type_id: "String",
                     formals: [],
-                    expr: Nil,
+                    expr: Constant {
+                        type_id: "String",
+                        value: "",
+                    },
                 },
                 Method {
                     object_id: "copy",
                     type_id: "SELF_TYPE",
                     formals: [],
-                    expr: Nil,
+                    expr: Constant {
+                        type_id: "SELF_TYPE",
+                        value: "",
+                    },
                 },
             ],
         },
@@ -89,7 +111,10 @@ Program {
                     object_id: "lenght",
                     type_id: "Int",
                     formals: [],
-                    expr: Nil,
+                    expr: Constant {
+                        type_id: "Int",
+                        value: "",
+                    },
                 },
                 Method {
                     object_id: "concat",
@@ -100,7 +125,10 @@ Program {
                             type_id: "String",
                         },
                     ],
-                    expr: Nil,
+                    expr: Constant {
+                        type_id: "String",
+                        value: "",
+                    },
                 },
                 Method {
                     object_id: "substr",
@@ -115,7 +143,10 @@ Program {
                             type_id: "Int",
                         },
                     ],
-                    expr: Nil,
+                    expr: Constant {
+                        type_id: "SELF_TYPE",
+                        value: "",
+                    },
                 },
             ],
         },
@@ -133,7 +164,10 @@ Program {
                             type_id: "String",
                         },
                     ],
-                    expr: Nil,
+                    expr: Constant {
+                        type_id: "SELF_TYPE",
+                        value: "",
+                    },
                 },
                 Method {
                     object_id: "out_int",
@@ -144,19 +178,28 @@ Program {
                             type_id: "Int",
                         },
                     ],
-                    expr: Nil,
+                    expr: Constant {
+                        type_id: "SELF_TYPE",
+                        value: "",
+                    },
                 },
                 Method {
                     object_id: "in_string",
                     type_id: "String",
                     formals: [],
-                    expr: Nil,
+                    expr: Constant {
+                        type_id: "String",
+                        value: "",
+                    },
                 },
                 Method {
                     object_id: "in_int",
                     type_id: "Int",
                     formals: [],
-                    expr: Nil,
+                    expr: Constant {
+                        type_id: "Int",
+                        value: "",
+                    },
                 },
             ],
         },

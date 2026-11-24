@@ -113,6 +113,17 @@ fn object_definition(state: &mut State) -> Result<Attribute, Attribute> {
             Ok(expr) => { attribute.expr = expr }
             Err(expr) => { attribute.expr = expr; return Err(attribute) }
         }
+    } else {
+        attribute.expr = Expr::Constant {
+            type_id: attribute.type_id.clone(),
+
+            value: match attribute.type_id.as_str() {
+                "Int" => String::from("0"),
+                "Bool" => String::from("false"),
+                "String" => String::from("\"\""),
+                _ => String::from("void")
+            }
+        }
     }
     
     return Ok(attribute);
@@ -530,7 +541,7 @@ fn expr(state: &mut State) -> Result<Expr, Expr> {
                 expr_node = Expr::BinaryOperator {
                     type_id: match op.as_str() {
                         "+" | "-" | "*" | "/" => String::from("Int"),
-                        &_ => String::from("Bool")
+                        _ => String::from("Bool")
                     },
                     
                     expr1: Box::new(expr_node),

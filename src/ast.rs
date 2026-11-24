@@ -162,21 +162,33 @@ impl Default for Program {
                             object_id: String::from("abort"),
                             type_id: String::from("Object"),
                             formals: Vec::new(),
-                            expr: Expr::Nil
+                            
+                            expr: Expr::Constant {
+                                type_id: String::from("Object"),
+                                value: String::new()
+                            }
                         },
 
                         Method {
                             object_id: String::from("type_name"),
                             type_id: String::from("String"),
                             formals: Vec::new(),
-                            expr: Expr::Nil
+
+                            expr: Expr::Constant {
+                                type_id: String::from("String"),
+                                value: String::new()
+                            }
                         },
 
                         Method {
                             object_id: String::from("copy"),
                             type_id: String::from("SELF_TYPE"),
                             formals: Vec::new(),
-                            expr: Expr::Nil
+
+                            expr: Expr::Constant {
+                                type_id: String::from("SELF_TYPE"),
+                                value: String::new()
+                            }
                         }
                     ]
                 },
@@ -204,7 +216,11 @@ impl Default for Program {
                             object_id: String::from("lenght"),
                             type_id: String::from("Int"),
                             formals: Vec::new(),
-                            expr: Expr::Nil
+
+                            expr: Expr::Constant {
+                                type_id: String::from("Int"),
+                                value: String::new()
+                            }
                         },
 
                         Method {
@@ -218,7 +234,10 @@ impl Default for Program {
                                 }
                             ],
 
-                            expr: Expr::Nil
+                            expr: Expr::Constant {
+                                type_id: String::from("String"),
+                                value: String::new()
+                            }
                         },
 
                         Method {
@@ -237,7 +256,10 @@ impl Default for Program {
                                 }
                             ],
 
-                            expr: Expr::Nil
+                            expr: Expr::Constant {
+                                type_id: String::from("SELF_TYPE"),
+                                value: String::new()
+                            }
                         }
                     ]
                 },
@@ -259,7 +281,10 @@ impl Default for Program {
                                 }
                             ],
 
-                            expr: Expr::Nil
+                            expr: Expr::Constant {
+                                type_id: String::from("SELF_TYPE"),
+                                value: String::new()
+                            }
                         },
 
                         Method {
@@ -273,21 +298,32 @@ impl Default for Program {
                                 }
                             ],
 
-                            expr: Expr::Nil
+                            expr: Expr::Constant {
+                                type_id: String::from("SELF_TYPE"),
+                                value: String::new()
+                            }
                         },
 
                         Method {
                             object_id: String::from("in_string"),
                             type_id: String::from("String"),
                             formals: Vec::new(),
-                            expr: Expr::Nil
+
+                            expr: Expr::Constant {
+                                type_id: String::from("String"),
+                                value: String::new()
+                            }
                         },
 
                         Method {
                             object_id: String::from("in_int"),
                             type_id: String::from("Int"),
                             formals: Vec::new(),
-                            expr: Expr::Nil
+
+                            expr: Expr::Constant {
+                                type_id: String::from("Int"),
+                                value: String::new()
+                            }
                         }
                     ]
                 }

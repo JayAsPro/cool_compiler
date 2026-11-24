@@ -91,16 +91,12 @@ fn attribute_type(object_id: &str, env_stack: &Vec<Environment>) -> String {
                         }
                     }
 
-                    Expr::Case { list, .. } => {
-                        if let Some(branch) = list.iter().find(
-                            |branch| branch.object_id == object_id
-                        ) {
-                            return branch.type_id.clone()
-                        }
-                    }
-
                     _ => ()
                 }
+            }
+
+            Environment::CaseOfBranch(branch) => {
+                if branch.object_id == object_id { return branch.type_id.clone() }
             }
         }
     }
@@ -155,7 +151,12 @@ impl CaseOfBranch {
             return false
         }
 
-        return self.expr.semantic(env_stack, classes)
+        env_stack.push(Environment::CaseOfBranch(self.without_exprs()));
+
+        if !self.expr.semantic(env_stack, classes) { return false }
+
+        env_stack.pop();
+        return true
     }
 }
 
@@ -229,7 +230,11 @@ impl Expr {
                 }
 
                 if let Some((.., method)) = find_method_res {
-                    *type_id = method.type_id.clone();
+                    if method.type_id == "SELF_TYPE" {
+                        *type_id = expr.self_type_id()
+                    } else {
+                        *type_id = method.type_id.clone();
+                    }
 
                     if params.len() != method.formals.len() {
                         erro_semantico(self, "número errado de parâmetros em chamada de método");
@@ -243,7 +248,7 @@ impl Expr {
                     for (parameter, formal) in params.iter().zip(&method.formals) {
                         if nearest_parent(
                             &parameter.self_type_id(), &formal.type_id, env_stack, classes
-                        ) != formal.type_id {
+                        ) != fill_self_type(&formal.type_id, env_stack) {
                             erro_semantico(parameter,
                                 "tipo da expressão não conforma ao tipo do parâmetro do método"
                             );
@@ -321,8 +326,10 @@ impl Expr {
                 }));
 
                 if !expr.semantic(env_stack, classes) { return false }
-                *type_id = expr.self_type_id();
+
                 env_stack.pop();
+
+                *type_id = expr.self_type_id();
             }
 
             Expr::Case { type_id, case, list } => {
@@ -358,25 +365,40 @@ impl Expr {
                 }
             }
 
-            Expr::BinaryOperator { expr1, expr2, .. } => {
+            Expr::BinaryOperator { expr1, op, expr2, .. } => {
                 if !expr1.semantic(env_stack, classes) || !expr2.semantic(env_stack, classes) {
                     return false
                 }
 
-                if expr1.self_type_id() != "Int" {
-                    erro_semantico(expr1,
-                        "tipo do operando diferente de \"Int\" em expressão aritmética"
-                    );
+                match op.as_str() {
+                    "=" => {
+                        if expr1.self_type_id() == "Int"    || expr2.self_type_id() == "Int"
+                        || expr1.self_type_id() == "Bool"   || expr2.self_type_id() == "Bool"
+                        || expr1.self_type_id() == "String" || expr2.self_type_id() == "String" {
+                            if expr1.self_type_id() != expr2.self_type_id() {
+                                erro_semantico(self, "comparação inválida");
+                                return false
+                            }
+                        }
+                    }
 
-                    return false
-                }
+                    _ => {
+                        if expr1.self_type_id() != "Int" {
+                            erro_semantico(expr1,
+                                "tipo do operando diferente de \"Int\""
+                            );
 
-                if expr2.self_type_id() != "Int" {
-                    erro_semantico(expr2,
-                        "tipo do operando diferente de \"Int\" em expressão aritmética"
-                    );
+                            return false
+                        }
 
-                    return false
+                        if expr2.self_type_id() != "Int" {
+                            erro_semantico(expr2,
+                                "tipo do operando diferente de \"Int\""
+                            );
+
+                            return false
+                        }
+                    }
                 }
             }
 
@@ -424,7 +446,7 @@ impl Expr {
 
 impl Formal {
     pub fn semantic(&self, classes: &[Class]) -> bool {
-        if !class_exists(&self.type_id, classes) {
+        if self.type_id != "SELF_TYPE" && !class_exists(&self.type_id, classes) {
             erro_semantico(self, "tipo não definido");
             return false;
         }
@@ -463,7 +485,7 @@ impl Attribute {
             &self.type_id, &self.expr.self_type_id(), env_stack, classes
         );
 
-        if nearest != self.type_id {
+        if nearest != fill_self_type(&self.type_id, env_stack) {
             erro_semantico(self,
                 "o tipo estático da expressão não conforma ao tipo declarado do atributo"
             );
@@ -508,13 +530,17 @@ impl Method {
             return false
         }
 
+        env_stack.push(Environment::Method(self.without_exprs()));
+
         if !self.expr.semantic(env_stack, classes) { return false }
+
+        env_stack.pop();
 
         nearest = nearest_parent(
             &self.expr.self_type_id(), &self.type_id, env_stack, classes
         );
 
-        if nearest != self.type_id {
+        if nearest != fill_self_type(&self.type_id, env_stack) {
             erro_semantico(self, "tipo da expressão não conforma ao tipo de retorno do método");
             return false
         }

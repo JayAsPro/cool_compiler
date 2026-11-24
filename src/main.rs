@@ -36,5 +36,5 @@ fn main() {
     }
     
     // syntax::token_loop(&code);
-    // println!("{:#?}", state.ast)
+    println!("{:#?}", state.ast)
 }
