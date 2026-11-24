@@ -1,6 +1,7 @@
 // Gerado por IA: Claude Sonnet 5.5, esforço médio ou baixo.
 
 use crate::common::*;
+use crate::semantic;
 
 // Representação em Bril:
 //
@@ -234,19 +235,30 @@ fn gen_attribute_value(function: &mut Function, attribute: &Attribute) -> String
 }
 
 // Gera new_<Classe>(heap) -> handle, que aloca e inicializa um objeto.
-fn gen_constructor(class_id: usize, class: &Class) -> Function {
+// Layout: [id da classe, atributos herdados..., atributos próprios...].
+fn gen_constructor(class_id: usize, class: &Class, classes: &[Class]) -> Function {
     let mut function = Function::new(
         &format!("new_{}", class.type_id), vec![("heap", TYPE_PTR)], Some(TYPE_INT)
     );
 
-    let size = function.const_int(1 + class.attributes.len() as i64);
+    let mut attributes: Vec<&Attribute> = Vec::new();
+    
+    for environment in semantic::class_and_parents(&class.type_id, classes) {
+        if let Environment::Class(class) = environment {
+            for attribute in &class.attributes {
+                attributes.push(&attribute)
+            }
+        }
+    }
+
+    let size = function.const_int(1 + attributes.len() as i64);
     let object = call_alloc(&mut function, &size);
 
     let tag_slot = function.slot(&object, 0);
     let tag = function.const_int(class_id as i64);
     function.store(&tag_slot, &tag);
 
-    for (index, attribute) in class.attributes.iter().enumerate() {
+    for (index, attribute) in attributes.into_iter().enumerate() {
         let value = gen_attribute_value(&mut function, attribute);
         let slot = function.slot(&object, 1 + index as i64);
         function.store(&slot, &value);
@@ -261,11 +273,10 @@ pub fn gen_program(program: &Program) -> String {
 
     for (class_id, class) in program.classes.iter().enumerate() {
         if !BUILTIN_CLASSES.contains(&class.type_id.as_str()) {
-            functions.push(gen_constructor(class_id, class));
+            functions.push(gen_constructor(class_id, class, &program.classes));
         }
     }
 
     let functions: Vec<String> = functions.iter().map(|f| format!("    {}", f.to_json())).collect();
     return format!("{{\n  \"functions\": [\n{}\n  ]\n}}", functions.join(",\n"))
 }
-
