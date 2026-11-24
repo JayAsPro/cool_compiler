@@ -1,5 +1,7 @@
 // Gerado por IA: Claude Sonnet 5.5, esforço médio ou baixo.
 
+// Gerado por IA: Claude Sonnet 5.5, esforço médio ou baixo.
+
 use crate::common::*;
 use crate::semantic;
 
@@ -19,7 +21,11 @@ const HEAP_SIZE: i64 = 1_000_000;
 
 const BUILTIN_CLASSES: [&str; 5] = ["Object", "Int", "Bool", "String", "IO"];
 
+// Classes cujos valores não são objetos alocados com new_<Classe>.
+const PRIMITIVE_CLASSES: [&str; 3] = ["Int", "Bool", "String"];
+
 const TYPE_INT: &str = "\"int\"";
+const TYPE_BOOL: &str = "\"bool\"";
 const TYPE_PTR: &str = "{\"ptr\": \"int\"}";
 
 struct Function {
@@ -67,6 +73,64 @@ impl Function {
         ));
 
         return dest
+    }
+
+    // Compara dois ints; o resultado é um "bool" de Bril (não um int de Cool).
+    fn compare(&mut self, op: &str, arg1: &str, arg2: &str) -> String {
+        let dest = self.fresh();
+
+        self.instrs.push(format!(
+            "{{\"op\": \"{}\", \"dest\": \"{}\", \"type\": {}, \"args\": [\"{}\", \"{}\"]}}",
+            op, dest, TYPE_BOOL, arg1, arg2
+        ));
+
+        return dest
+    }
+
+    // Copia o valor de uma variável para outra já existente (ou nova).
+    fn assign(&mut self, dest: &str, source: &str) {
+        self.instrs.push(format!(
+            "{{\"op\": \"id\", \"dest\": \"{}\", \"type\": {}, \"args\": [\"{}\"]}}",
+            dest, TYPE_INT, source
+        ));
+    }
+
+    fn copy(&mut self, source: &str) -> String {
+        let dest = self.fresh();
+        self.assign(&dest, source);
+        return dest
+    }
+
+    fn fresh_label(&mut self, prefix: &str) -> String {
+        self.counter += 1;
+        return format!("{}_{}", prefix, self.counter)
+    }
+
+    // Converte um "bool" de Bril em um Bool de Cool (int 0 ou 1).
+    fn bool_to_int(&mut self, condition: &str) -> String {
+        let result = self.fresh();
+        let label_true = self.fresh_label("true");
+        let label_false = self.fresh_label("false");
+        let label_end = self.fresh_label("end");
+
+        self.instrs.push(format!(
+            "{{\"op\": \"br\", \"args\": [\"{}\"], \"labels\": [\"{}\", \"{}\"]}}",
+            condition, label_true, label_false
+        ));
+
+        self.instrs.push(format!("{{\"label\": \"{}\"}}", label_true));
+        self.instrs.push(format!(
+            "{{\"op\": \"const\", \"dest\": \"{}\", \"type\": {}, \"value\": 1}}", result, TYPE_INT
+        ));
+        self.instrs.push(format!("{{\"op\": \"jmp\", \"labels\": [\"{}\"]}}", label_end));
+
+        self.instrs.push(format!("{{\"label\": \"{}\"}}", label_false));
+        self.instrs.push(format!(
+            "{{\"op\": \"const\", \"dest\": \"{}\", \"type\": {}, \"value\": 0}}", result, TYPE_INT
+        ));
+
+        self.instrs.push(format!("{{\"label\": \"{}\"}}", label_end));
+        return result
     }
 
     // Retorna um ponteiro para heap[handle + offset].
@@ -145,17 +209,9 @@ fn gen_alloc_function() -> Function {
     );
 
     // heap[0] guarda o próximo índice livre.
-    let zero = function.const_int(0);
-    let counter_ptr = function.fresh();
-
-    function.instrs.push(format!(
-        "{{\"op\": \"ptradd\", \"dest\": \"{}\", \"type\": {}, \"args\": [\"heap\", \"{}\"]}}",
-        counter_ptr, TYPE_PTR, zero
-    ));
-
-    let handle = function.load(&counter_ptr);
+    let handle = function.load("heap");
     let next = function.binary("add", &handle, "size");
-    function.store(&counter_ptr, &next);
+    function.store("heap", &next);
     function.ret(&handle);
 
     return function
@@ -166,32 +222,19 @@ fn gen_main() -> Function {
     let mut function = Function::new("main", Vec::new(), None);
 
     let heap_size = function.const_int(HEAP_SIZE);
-    let heap = function.fresh();
 
     function.instrs.push(format!(
         "{{\"op\": \"alloc\", \"dest\": \"{}\", \"type\": {}, \"args\": [\"{}\"]}}",
-        heap, TYPE_PTR, heap_size
-    ));
-
-    // O nome "heap" é o que as demais funções esperam.
-    function.instrs.push(format!(
-        "{{\"op\": \"id\", \"dest\": \"heap\", \"type\": {}, \"args\": [\"{}\"]}}",
-        TYPE_PTR, heap
+        "heap", TYPE_PTR, heap_size
     ));
 
     // heap[0] = 1 (o handle 0 é reservado para "void").
-    let zero = function.const_int(0);
     let one = function.const_int(1);
-    let counter_ptr = function.fresh();
 
-    function.instrs.push(format!(
-        "{{\"op\": \"ptradd\", \"dest\": \"{}\", \"type\": {}, \"args\": [\"heap\", \"{}\"]}}",
-        counter_ptr, TYPE_PTR, zero
-    ));
+    function.store("heap", &one);
 
-    function.store(&counter_ptr, &one);
-
-    function.call("new_Main", &["heap"]);
+    let object = function.call("new_Main", &["heap"]);
+    function.call("Main.main", &["heap", object.as_str()]);
     function.instrs.push(String::from("{\"op\": \"free\", \"args\": [\"heap\"]}"));
 
     return function
@@ -217,19 +260,104 @@ fn gen_string(function: &mut Function, text: &str) -> String {
     return handle
 }
 
-// Gera o valor inicial de um atributo (neste passo, sempre uma constante).
-fn gen_attribute_value(function: &mut Function, attribute: &Attribute) -> String {
-    return match &attribute.expr {
-        Expr::Constant { type_id, value } => match type_id.as_str() {
-            "Int" => function.const_int(value.parse().unwrap_or(0)),
-            "Bool" => function.const_int(if value == "true" { 1 } else { 0 }),
-            "String" => gen_string(function, value),
+// Gera uma constante de Cool.
+fn gen_constant(function: &mut Function, type_id: &str, value: &str) -> String {
+    return match type_id {
+        "Int" => function.const_int(value.parse().unwrap_or(0)),
+        "Bool" => function.const_int(if value == "true" { 1 } else { 0 }),
+        "String" => gen_string(function, value),
 
-            // Object ou qualquer outra classe: sem inicializador, o valor é void (handle 0).
-            // Como todo objeto é um handle "int", o tipo do atributo não muda o layout.
-            _ => function.const_int(0)
+        // Object ou qualquer outra classe: sem inicializador, o valor é void (handle 0).
+        // Como todo objeto é um handle "int", o tipo do atributo não muda o layout.
+        _ => function.const_int(0)
+    }
+}
+
+// Retorna os atributos de uma classe na ordem do layout: herdados primeiro.
+fn class_attributes<'a>(type_id: &'a str, classes: &'a [Class]) -> Vec<&'a Attribute> {
+    let mut attributes: Vec<&Attribute> = Vec::new();
+
+    for environment in semantic::class_and_parents(type_id, classes) {
+        if let Environment::Class(class) = environment {
+            for attribute in &class.attributes {
+                attributes.push(&attribute)
+            }
+        }
+    }
+
+    return attributes
+}
+
+// Contexto de geração de uma expressão: onde procurar os identificadores.
+struct Context<'a> {
+    attributes: Vec<&'a Attribute>,
+    formals: &'a [Formal],
+    self_var: String
+}
+
+fn formal_var(object_id: &str) -> String {
+    return format!("arg_{}", object_id)
+}
+
+// Gera o código de uma expressão e retorna a variável Bril com o seu valor.
+fn gen_expr(function: &mut Function, context: &Context, expr: &Expr) -> String {
+    return match expr {
+        Expr::Constant { type_id, value } => gen_constant(function, type_id, value),
+
+        Expr::Identifier { object_id, .. } => {
+            if object_id == "self" {
+                context.self_var.clone()
+            } else if context.formals.iter().any(|formal| formal.object_id == *object_id) {
+                function.copy(&formal_var(object_id))
+            } else if let Some(index) = context.attributes.iter().rposition(
+                |attribute| attribute.object_id == *object_id
+            ) {
+                let slot = function.slot(&context.self_var, 1 + index as i64);
+                function.load(&slot)
+            } else {
+                function.const_int(0)
+            }
+        }
+
+        Expr::Assigment { object_id, expr, .. } => {
+            let value = gen_expr(function, context, expr);
+
+            if context.formals.iter().any(|formal| formal.object_id == *object_id) {
+                function.assign(&formal_var(object_id), &value);
+            } else if let Some(index) = context.attributes.iter().rposition(
+                |attribute| attribute.object_id == *object_id
+            ) {
+                let slot = function.slot(&context.self_var, 1 + index as i64);
+                function.store(&slot, &value);
+            }
+
+            value
+        }
+
+        Expr::New { type_id } => match type_id.as_str() {
+            "Int" | "Bool" => function.const_int(0),
+            "String" => gen_string(function, "\"\""),
+            _ => function.call(&format!("new_{}", type_id), &["heap"])
         },
 
+        Expr::Isvoid { expr, .. } => {
+            let value = gen_expr(function, context, expr);
+
+            // Int e Bool nunca são void; String e objetos são void se o handle for 0.
+            match expr.self_type_id().as_str() {
+                "Int" | "Bool" => function.const_int(0),
+
+                _ => {
+                    let zero = function.const_int(0);
+                    let condition = function.compare("eq", &value, &zero);
+                    function.bool_to_int(&condition)
+                }
+            }
+        }
+
+        Expr::Parenthesis { expr, .. } => gen_expr(function, context, expr),
+
+        // Demais expressões: ainda não suportadas (valem void).
         _ => function.const_int(0)
     }
 }
@@ -241,15 +369,7 @@ fn gen_constructor(class_id: usize, class: &Class, classes: &[Class]) -> Functio
         &format!("new_{}", class.type_id), vec![("heap", TYPE_PTR)], Some(TYPE_INT)
     );
 
-    let mut attributes: Vec<&Attribute> = Vec::new();
-    
-    for environment in semantic::class_and_parents(&class.type_id, classes) {
-        if let Environment::Class(class) = environment {
-            for attribute in &class.attributes {
-                attributes.push(&attribute)
-            }
-        }
-    }
+    let attributes = class_attributes(&class.type_id, classes);
 
     let size = function.const_int(1 + attributes.len() as i64);
     let object = call_alloc(&mut function, &size);
@@ -258,8 +378,10 @@ fn gen_constructor(class_id: usize, class: &Class, classes: &[Class]) -> Functio
     let tag = function.const_int(class_id as i64);
     function.store(&tag_slot, &tag);
 
+    let context = Context { attributes: attributes.clone(), formals: &[], self_var: object.clone() };
+
     for (index, attribute) in attributes.into_iter().enumerate() {
-        let value = gen_attribute_value(&mut function, attribute);
+        let value = gen_expr(&mut function, &context, &attribute.expr);
         let slot = function.slot(&object, 1 + index as i64);
         function.store(&slot, &value);
     }
@@ -268,12 +390,44 @@ fn gen_constructor(class_id: usize, class: &Class, classes: &[Class]) -> Functio
     return function
 }
 
+// Gera <Classe>.<método>(heap, self, parâmetros...) -> int.
+fn gen_method(class: &Class, method: &Method, classes: &[Class]) -> Function {
+    let formal_vars: Vec<String> = method.formals.iter().map(|f| formal_var(&f.object_id)).collect();
+    let mut args = vec![("heap", TYPE_PTR), ("self", TYPE_INT)];
+
+    for formal in &formal_vars {
+        args.push((formal.as_str(), TYPE_INT));
+    }
+
+    let mut function = Function::new(
+        &format!("{}.{}", class.type_id, method.object_id), args, Some(TYPE_INT)
+    );
+
+    let context = Context {
+        attributes: class_attributes(&class.type_id, classes),
+        formals: &method.formals,
+        self_var: String::from("self")
+    };
+
+    let value = gen_expr(&mut function, &context, &method.expr);
+    function.ret(&value);
+
+    return function
+}
+
 pub fn gen_program(program: &Program) -> String {
     let mut functions = vec![gen_alloc_function(), gen_main()];
 
     for (class_id, class) in program.classes.iter().enumerate() {
-        if !BUILTIN_CLASSES.contains(&class.type_id.as_str()) {
+        if !PRIMITIVE_CLASSES.contains(&class.type_id.as_str()) {
             functions.push(gen_constructor(class_id, class, &program.classes));
+        }
+
+        // Os métodos das classes padrão serão escritos em Bril no passo 5.
+        if !BUILTIN_CLASSES.contains(&class.type_id.as_str()) {
+            for method in &class.methods {
+                functions.push(gen_method(class, method, &program.classes));
+            }
         }
     }
 
