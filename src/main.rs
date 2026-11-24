@@ -27,7 +27,7 @@ fn main() {
     if syntax::program(&mut state) {
         if state.ast.semantic() {
             let output = generation::gen_program(&mut state.ast);
-            println!("{}", output);
+            // println!("{}", output);
 
             if let Ok(_) = fs::write("output.bril", output) {
                 println!("Compilação concluída com sucesso!")
@@ -36,5 +36,5 @@ fn main() {
     }
     
     // syntax::token_loop(&code);
-    println!("{:#?}", state.ast)
+    // println!("{:#?}", state.ast)
 }
