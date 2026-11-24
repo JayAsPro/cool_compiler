@@ -798,9 +798,8 @@ fn gen_builtin_method(class: &Class, method: &Method, classes: &[Class]) -> Func
 
     match (class.type_id.as_str(), method.object_id.as_str()) {
         ("Object", "abort") => {
-            let loop_label = function.fresh_label("abort");
-            function.label(&loop_label);
-            function.jump(&loop_label);
+            let ret = function.const_int(-1);
+            function.ret(&ret);
         }
         ("Object", "copy") => {
             let end = function.fresh_label("copy_end");
