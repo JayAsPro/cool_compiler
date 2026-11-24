@@ -223,6 +223,9 @@ fn gen_attribute_value(function: &mut Function, attribute: &Attribute) -> String
             "Int" => function.const_int(value.parse().unwrap_or(0)),
             "Bool" => function.const_int(if value == "true" { 1 } else { 0 }),
             "String" => gen_string(function, value),
+
+            // Object ou qualquer outra classe: sem inicializador, o valor é void (handle 0).
+            // Como todo objeto é um handle "int", o tipo do atributo não muda o layout.
             _ => function.const_int(0)
         },
 
@@ -265,3 +268,4 @@ pub fn gen_program(program: &Program) -> String {
     let functions: Vec<String> = functions.iter().map(|f| format!("    {}", f.to_json())).collect();
     return format!("{{\n  \"functions\": [\n{}\n  ]\n}}", functions.join(",\n"))
 }
+

@@ -8,7 +8,6 @@ mod syntax;
 mod semantic;
 mod generation;
 
-
 fn main() {
     let arguments: Vec<String> = env::args().collect();
 
